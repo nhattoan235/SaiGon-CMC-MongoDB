@@ -10,6 +10,7 @@
         "dompdf/dompdf": "^3.1",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
+        "mongodb/laravel-mongodb": "^5.11",
         "phpoffice/phpspreadsheet": "^5.10"
     },
     "require-dev": {

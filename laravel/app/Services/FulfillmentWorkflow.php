@@ -88,37 +88,40 @@ class FulfillmentWorkflow
 
     public function createPurchaseOrder(int $supplierId, int $warehouseId, int $staffId, array $items): int
     {
-        return DB::transaction(function () use ($supplierId, $warehouseId, $staffId, $items) {
-            if ($items === [] || ! DB::table('suppliers')->where('id', $supplierId)->where('active', true)->exists()
-                || ! DB::table('warehouses')->where('id', $warehouseId)->where('active', true)->exists()) {
-                $this->fail('Nhà cung cấp, kho hoặc danh sách hàng không hợp lệ.');
+        return DB::transaction(fn () => $this->createPurchaseOrderInTransaction($supplierId, $warehouseId, $staffId, $items));
+    }
+
+    private function createPurchaseOrderInTransaction(int $supplierId, int $warehouseId, int $staffId, array $items): int
+    {
+        if ($items === [] || ! DB::table('suppliers')->where('id', $supplierId)->where('active', true)->exists()
+            || ! DB::table('warehouses')->where('id', $warehouseId)->where('active', true)->exists()) {
+            $this->fail('Nhà cung cấp, kho hoặc danh sách hàng không hợp lệ.');
+        }
+        $id = DB::table('purchase_orders')->insertGetId([
+            'code' => 'TEMP-'.uniqid(), 'supplier_id' => $supplierId, 'warehouse_id' => $warehouseId,
+            'requested_by' => $staffId, 'status' => 'pending',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $total = '0.00';
+        foreach ($items as $item) {
+            $productId = $item['product_id'] ?? null;
+            $quantity = (string) ($item['quantity'] ?? 0);
+            $price = (string) ($item['unit_price'] ?? -1);
+            if (! DB::table('products')->where('id', $productId)->exists()
+                || ! is_numeric($quantity) || bccomp($quantity, '0', 3) <= 0
+                || ! is_numeric($price) || bccomp($price, '0', 2) < 0) {
+                $this->fail('Dòng nhập hàng không hợp lệ.');
             }
-            $id = DB::table('purchase_orders')->insertGetId([
-                'code' => 'TEMP-'.uniqid(), 'supplier_id' => $supplierId, 'warehouse_id' => $warehouseId,
-                'requested_by' => $staffId, 'status' => 'pending',
+            $total = bcadd($total, bcmul($quantity, $price, 2), 2);
+            DB::table('purchase_items')->insert([
+                'purchase_order_id' => $id, 'product_id' => $productId,
+                'quantity' => $quantity, 'unit_price' => $price,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
-            $total = '0.00';
-            foreach ($items as $item) {
-                $productId = $item['product_id'] ?? null;
-                $quantity = (string) ($item['quantity'] ?? 0);
-                $price = (string) ($item['unit_price'] ?? -1);
-                if (! DB::table('products')->where('id', $productId)->exists()
-                    || ! is_numeric($quantity) || bccomp($quantity, '0', 3) <= 0
-                    || ! is_numeric($price) || bccomp($price, '0', 2) < 0) {
-                    $this->fail('Dòng nhập hàng không hợp lệ.');
-                }
-                $total = bcadd($total, bcmul($quantity, $price, 2), 2);
-                DB::table('purchase_items')->insert([
-                    'purchase_order_id' => $id, 'product_id' => $productId,
-                    'quantity' => $quantity, 'unit_price' => $price,
-                    'created_at' => now(), 'updated_at' => now(),
-                ]);
-            }
-            DB::table('purchase_orders')->where('id', $id)->update(['code' => $this->code('MH', $id), 'total' => $total]);
+        }
+        DB::table('purchase_orders')->where('id', $id)->update(['code' => $this->code('MH', $id), 'total' => $total]);
 
-            return $id;
-        });
+        return $id;
     }
 
     public function approvePurchaseOrder(int $purchaseId, int $managerId): void
@@ -512,7 +515,7 @@ class FulfillmentWorkflow
     public function requestReturn(int $orderId, int $customerId, int $productId, string $quantity, string $reason, string $type = 'return'): int
     {
         return DB::transaction(function () use ($orderId, $customerId, $productId, $quantity, $reason, $type) {
-            $order = DB::table('orders')->where('id', $orderId)->first();
+            $order = DB::table('orders')->where('id', $orderId)->lockForUpdate()->first();
             $item = DB::table('order_items')->where('order_id', $orderId)->where('product_id', $productId)->first();
             if (! $order || $order->customer_id !== $customerId || ! in_array($order->status, ['delivered', 'delivery_incident'], true) || ! $item
                 || ! is_numeric($quantity) || bccomp($quantity, '0', 3) <= 0 || ! in_array($type, ['return', 'exchange'], true)) {
@@ -593,7 +596,7 @@ class FulfillmentWorkflow
                         ->where('purchase_items.product_id', $return->product_id)->where('suppliers.active', true)
                         ->where('purchase_items.received_quantity', '>', 0)->orderByDesc('purchase_orders.id')
                         ->select('purchase_orders.supplier_id', 'purchase_items.unit_price')->first();
-                    $purchaseId = $supplier ? $this->createPurchaseOrder($supplier->supplier_id, $warehouseId, $staffId, [[
+                    $purchaseId = $supplier ? $this->createPurchaseOrderInTransaction($supplier->supplier_id, $warehouseId, $staffId, [[
                         'product_id' => $return->product_id,
                         'quantity' => bcsub((string) $return->quantity, $available, 3),
                         'unit_price' => $supplier->unit_price,
@@ -658,7 +661,7 @@ class FulfillmentWorkflow
             if (bccomp($available, (string) $return->quantity, 3) >= 0) {
                 $this->fail('Kho đã đủ hàng đổi; hãy xuất hàng thay thế.');
             }
-            $purchaseId = $this->createPurchaseOrder($supplierId, $return->replacement_warehouse_id, $staffId, [[
+            $purchaseId = $this->createPurchaseOrderInTransaction($supplierId, $return->replacement_warehouse_id, $staffId, [[
                 'product_id' => $return->product_id,
                 'quantity' => bcsub((string) $return->quantity, $available, 3),
                 'unit_price' => $unitPrice,

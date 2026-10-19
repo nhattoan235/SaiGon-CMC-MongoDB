@@ -7,14 +7,14 @@ use App\Services\CommerceWorkflow;
 use App\Services\FulfillmentWorkflow;
 use App\Support\UiFormat;
 use Database\Seeders\DemoOpeningStockSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class CommerceWorkflowTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     public function test_quantity_input_uses_plain_decimal_without_thousands_separator(): void
     {

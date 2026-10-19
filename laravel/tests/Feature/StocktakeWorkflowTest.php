@@ -4,14 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Services\FulfillmentWorkflow;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class StocktakeWorkflowTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     public function test_stocktake_changes_inventory_only_after_review_and_rejects_stale_count(): void
     {

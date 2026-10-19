@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env('QUEUE_CONNECTION', 'mongodb'),
 
     /*
     |--------------------------------------------------------------------------
@@ -30,6 +30,15 @@ return [
     */
 
     'connections' => [
+
+        'mongodb' => [
+            'driver' => 'mongodb',
+            'connection' => 'mongodb',
+            'table' => 'jobs',
+            'queue' => 'default',
+            'retry_after' => 90,
+            'after_commit' => true,
+        ],
 
         'sync' => [
             'driver' => 'sync',
@@ -84,6 +93,7 @@ return [
         'failover' => [
             'driver' => 'failover',
             'connections' => [
+
                 'database',
                 'deferred',
             ],
@@ -103,7 +113,9 @@ return [
     */
 
     'batching' => [
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        'driver' => 'mongodb',
+        'collection' => 'job_batches',
+        'database' => env('DB_CONNECTION', 'mongodb'),
         'table' => 'job_batches',
     ],
 
@@ -121,8 +133,8 @@ return [
     */
 
     'failed' => [
-        'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        'driver' => env('QUEUE_FAILED_DRIVER', 'mongodb'),
+        'database' => env('DB_CONNECTION', 'mongodb'),
         'table' => 'failed_jobs',
     ],
 

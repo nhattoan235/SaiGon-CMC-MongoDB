@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class EstimateTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     public function test_reseeding_does_not_overwrite_approved_product_price(): void
     {

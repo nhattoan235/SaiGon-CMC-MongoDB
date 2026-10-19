@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class ReportWorkflowTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     public function test_sales_report_filters_orders_by_category_customer_and_reviewing_staff(): void
     {

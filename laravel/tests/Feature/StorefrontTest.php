@@ -4,15 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Services\CommerceWorkflow;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class StorefrontTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     public function test_registration_form_uses_email_and_otp_fields_without_phone(): void
     {

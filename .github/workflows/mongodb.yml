@@ -1,0 +1,70 @@
+name: MongoDB tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: laravel
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: mongodb
+      DB_URL: ''
+      MONGODB_DATABASE: cmc_mongo_test_ci
+      MONGODB_URI: mongodb://127.0.0.1:27028/?replicaSet=cmcMongoRs
+      SESSION_DRIVER: array
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP with the official MongoDB extension
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mongodb-2.5.5, bcmath, mbstring, dom, fileinfo, gd, zip, xml, xmlreader, xmlwriter
+          coverage: none
+          tools: composer:v2
+        env:
+          fail-fast: true
+      - name: Start isolated replica set
+        run: |
+          docker run --detach --name cmc-mongo --network host mongo:8.3 mongod --replSet cmcMongoRs --bind_ip 127.0.0.1 --port 27028
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec cmc-mongo mongosh 'mongodb://127.0.0.1:27028/admin?directConnection=true' --quiet --eval 'quit(db.adminCommand({ping:1}).ok === 1 ? 0 : 1)' >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = true
+          docker exec cmc-mongo mongosh 'mongodb://127.0.0.1:27028/admin?directConnection=true' --quiet --eval 'rs.initiate({_id:"cmcMongoRs",members:[{_id:0,host:"127.0.0.1:27028"}]}); for (let attempt=0; attempt<60; attempt++) { if (db.hello().isWritablePrimary) break; sleep(500); } if (!db.hello().isWritablePrimary) throw new Error("Replica set did not become primary");'
+      - name: Install locked dependencies
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist --no-scripts
+          composer check-platform-reqs
+          php artisan package:discover --no-interaction
+      - name: Run the full suite against MongoDB
+        run: php vendor/bin/phpunit --log-junit ../phpunit.xml
+      - name: Show replica-set logs on failure
+        if: failure()
+        run: docker logs cmc-mongo
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongodb-phpunit
+          path: phpunit.xml
+          if-no-files-found: ignore
+      - name: Stop isolated replica set
+        if: always()
+        run: docker rm --force cmc-mongo

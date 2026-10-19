@@ -17,3 +17,6 @@
 **/public/storage/
 **/public/build/
 .worktrees/
+
+# Isolated local MongoDB runtime
+/.runtime/

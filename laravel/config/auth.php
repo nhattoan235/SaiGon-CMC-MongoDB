@@ -63,7 +63,7 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            'driver' => 'mongo-numeric',
             'model' => env('AUTH_MODEL', User::class),
         ],
 

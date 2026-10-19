@@ -4,14 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class AuthPasswordResetTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     public function test_customer_can_request_password_reset_with_login_email(): void
     {
