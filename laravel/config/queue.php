@@ -30,6 +30,7 @@ return [
     */
 
     'connections' => [
+        'backup' => ['driver' => 'mongodb', 'connection' => 'mongodb', 'table' => 'jobs', 'queue' => 'backup', 'retry_after' => 1800, 'after_commit' => true],
 
         'mongodb' => [
             'driver' => 'mongodb',
@@ -93,6 +94,7 @@ return [
         'failover' => [
             'driver' => 'failover',
             'connections' => [
+                'backup' => ['driver' => 'mongodb', 'connection' => 'mongodb', 'table' => 'jobs', 'queue' => 'backup', 'retry_after' => 1800, 'after_commit' => true],
 
                 'database',
                 'deferred',

@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BackupController;
+use App\Http\Controllers\BackupGoogleController;
 use App\Http\Controllers\EstimateController;
 use App\Http\Controllers\ManagementController;
 use App\Http\Controllers\ReportController;
@@ -130,3 +132,14 @@ Route::middleware(['auth', 'role:sales,warehouse,accounting,manager,admin,delive
 });
 Route::post('/staff/reports', [ReportController::class, 'create'])->middleware(['auth', 'role:sales,warehouse,accounting,manager,admin,delivery'])->name('staff.reports.create');
 Route::post('/staff/reports/{id}/review', [ReportController::class, 'review'])->middleware(['auth', 'role:manager,admin'])->name('staff.reports.review');
+
+Route::middleware(['auth', 'role:admin'])->prefix('staff/backups')->name('staff.backups.')->group(function () {
+    Route::get('/', [BackupController::class, 'index'])->name('index');
+    Route::post('/', [BackupController::class, 'create'])->middleware('throttle:5,1')->name('create');
+    Route::post('/settings', [BackupController::class, 'settings'])->name('settings');
+    Route::post('/google/connect', [BackupGoogleController::class, 'connect'])->middleware('throttle:5,1')->name('google.connect');
+    Route::get('/google/callback', [BackupGoogleController::class, 'callback'])->name('google.callback');
+    Route::post('/google/disconnect', [BackupGoogleController::class, 'disconnect'])->name('google.disconnect');
+    Route::post('/{id}/retry', [BackupController::class, 'retry'])->whereUuid('id')->middleware('throttle:5,1')->name('retry');
+    Route::get('/{id}/download', [BackupController::class, 'download'])->whereUuid('id')->middleware('throttle:10,1')->name('download');
+});

@@ -53,6 +53,9 @@
                     @endif
                 @endforeach
                 <span class="staff-nav-label">HỆ THỐNG</span>
+                @if($staffRole === 'admin')
+                    <a href="{{ route('staff.backups.index') }}" @class(['is-active' => request()->routeIs('staff.backups.*')]) @if(request()->routeIs('staff.backups.*')) aria-current="page" @endif>@include('staff.nav-icon', ['name' => 'reports'])Sao lưu dữ liệu</a>
+                @endif
                 @if(in_array($staffRole, ['sales', 'warehouse', 'manager', 'admin'], true))
                     <a href="{{ route('management.index') }}" @class(['is-active' => request()->routeIs('management.*')]) @if(request()->routeIs('management.*')) aria-current="page" @endif>@include('staff.nav-icon', ['name' => 'management'])Danh mục & quản trị</a>
                 @endif
