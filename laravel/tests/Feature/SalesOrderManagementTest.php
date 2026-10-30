@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Services\CommerceWorkflow;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class SalesOrderManagementTest extends TestCase

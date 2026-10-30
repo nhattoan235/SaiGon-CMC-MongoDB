@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Services\CommerceWorkflow;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class StorefrontTest extends TestCase

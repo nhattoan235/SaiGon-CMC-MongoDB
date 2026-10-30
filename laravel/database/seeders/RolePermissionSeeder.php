@@ -38,5 +38,7 @@ class RolePermissionSeeder extends Seeder
                 ]);
             }
         }
+        DB::table('role_permissions')->where('role_id', $roles['admin'])
+            ->whereIn('permission_id', [$permissions['vietqr.create'], $permissions['vietqr.confirm']])->delete();
     }
 }

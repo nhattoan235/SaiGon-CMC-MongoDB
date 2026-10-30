@@ -6,8 +6,8 @@ use App\Models\User;
 use App\Services\DebtReconciliationWorkflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class DebtReconciliationTest extends TestCase

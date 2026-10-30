@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Services\CatalogWorkflow;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class CatalogWorkflowTest extends TestCase

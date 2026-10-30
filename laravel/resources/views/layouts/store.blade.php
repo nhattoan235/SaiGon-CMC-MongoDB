@@ -18,6 +18,7 @@
                             <a class="dropdown-item" href="{{ route('my.quotes') }}">Báo giá của tôi</a>
                             <a class="dropdown-item" href="{{ route('my.contracts') }}">Hợp đồng</a>
                             <a class="dropdown-item" href="{{ route('my.orders') }}">Đơn hàng của tôi</a>
+                            <a class="dropdown-item" href="{{ route('my.transfers.index') }}">Thanh toán chuyển khoản</a>
                             <a class="dropdown-item" href="{{ route('profile') }}">Thông tin cá nhân</a>
                         @else
                             <a class="dropdown-item" href="{{ route('staff.dashboard') }}">Bảng làm việc</a>

@@ -77,7 +77,7 @@ class AssistantController extends Controller
             && preg_match('/\b(ban co|co ban|co san|gia|bao nhieu|chi tiet|xem san pham|tim san pham|can mua)\b/', $normalized)
             && ! preg_match('/\b(doi tra|doi hang|bao hanh|giao hang|van chuyen|thanh toan|cong no|thi cong|ky thuat|chiu luc|phu hop|chinh sach)\b/', $normalized);
         try {
-            $matches = array_slice($rag->search($searchQuestion), 0, 3);
+            $matches = $catalogOnly ? [] : array_slice($rag->search($searchQuestion), 0, 3);
         } catch (\Throwable $exception) {
             report($exception);
 

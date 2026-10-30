@@ -6,9 +6,9 @@ use App\Models\User;
 use App\Services\CatalogWorkflow;
 use App\Services\CommerceWorkflow;
 use App\Services\FulfillmentWorkflow;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class ApprovalWorkflowTest extends TestCase

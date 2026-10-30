@@ -35,6 +35,9 @@ class PermissionMatrix
             'contracts.cancel' => 'Hủy hợp đồng theo quy trình',
             'finance.view' => 'Xem tài chính và công nợ',
             'payments.record' => 'Ghi nhận thanh toán',
+            'vietqr.create' => 'Tạo yêu cầu chuyển khoản VietQR',
+            'vietqr.confirm' => 'Xác nhận chuyển khoản VietQR',
+            'bank_accounts.manage' => 'Cấu hình tài khoản nhận VietQR',
             'debts.manage' => 'Quản lý lịch và đối chiếu công nợ',
             'credits.manage' => 'Hoàn hoặc cấn trừ tiền khách',
             'supplier.debts.manage' => 'Quyết toán công nợ nhà cung cấp',
@@ -87,6 +90,7 @@ class PermissionMatrix
             ],
             'accounting' => [
                 'staff.access', 'finance.view', 'orders.view', 'returns.view', 'payments.record',
+                'vietqr.create', 'vietqr.confirm',
                 'debts.manage', 'credits.manage', 'supplier.debts.manage', 'invoices.issue',
                 'supplier.confirmations.manage', 'returns.settle', 'reports.view', 'reports.create',
             ],
@@ -97,7 +101,7 @@ class PermissionMatrix
                 'stocktakes.review', 'catalog.review', 'customers.credit.manage',
                 'returns.view', 'reports.view', 'reports.create', 'reports.review',
             ],
-            'admin' => array_keys(self::permissions()),
+            'admin' => array_values(array_diff(array_keys(self::permissions()), ['vietqr.create', 'vietqr.confirm'])),
             'delivery' => [
                 'staff.access', 'orders.view', 'shipments.manage', 'returns.view',
                 'returns.collect', 'reports.view', 'reports.create',

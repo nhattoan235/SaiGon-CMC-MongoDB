@@ -5,11 +5,11 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Services\GroqSettings;
 use App\Services\RagService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class AiSetupTest extends TestCase

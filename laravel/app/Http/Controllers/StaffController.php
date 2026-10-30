@@ -371,6 +371,9 @@ class StaffController extends Controller
             'reference' => ['nullable', 'string', 'max:100'],
             'idempotency_key' => ['required', 'uuid'],
         ]);
+        if ($data['method'] === 'bank_transfer' && DB::table('debts')->where('id', $debtId)->value('direction') === 'receivable') {
+            return back()->withErrors(['method' => 'Khoản phải thu chuyển khoản phải đi qua yêu cầu VietQR và bước đối chiếu của kế toán.']);
+        }
         $workflow->recordPayment($debtId, $request->user()->id, (string) $data['amount'], $data['method'],
             $data['reference'] ?? null, $data['idempotency_key']);
 

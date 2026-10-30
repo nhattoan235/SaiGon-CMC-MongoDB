@@ -1,22 +1,16 @@
-# Sài Gòn CMC — Laravel + MySQL
+# Sài Gòn CMC — Laravel + MongoDB
 
-Ứng dụng PHP nằm trong thư mục `laravel/` của kho mã. Cơ sở dữ liệu Laravel là `cmms_laravel`. Dữ liệu seed chỉ dùng minh họa.
+Ứng dụng PHP nằm trong thư mục `laravel/` của kho mã. Cơ sở dữ liệu vận hành là MongoDB `cmms_mongodb`. Dữ liệu seed chỉ dùng minh họa. MySQL được giữ để đối chiếu và phục hồi, không phục vụ truy vấn của ứng dụng MongoDB.
 
 ## Chạy trên máy
 
-Yêu cầu PHP 8.3+, Composer và MySQL. Trong thư mục `laravel/`:
+Yêu cầu Docker Desktop. Chạy các lệnh ở thư mục gốc repo theo [README gốc](../README.md). Với hệ thống đã cài:
 
 ```powershell
-composer install
-Copy-Item .env.example .env
-php artisan key:generate
-# Sửa DB_USERNAME, DB_PASSWORD và GROQ_API_KEY trong .env
-php artisan migrate --seed
-php artisan cmms:create-admin admin
-php artisan serve
+docker compose -p cmc-mongodb -f compose.mongodb.yaml up -d app-mongodb queue-worker rag-worker scheduler
 ```
 
-Vào URL do `artisan serve` in ra. Lệnh `cmms:create-admin` hỏi mật khẩu tương tác; không có tài khoản quản trị mặc định. Không đưa `.env` lên Git. Nếu chưa có Groq key, trợ lý tra cứu sản phẩm trong danh mục nội bộ; khi có key, trợ lý dùng Groq và bộ kiến thức tư vấn khách hàng.
+Mở http://localhost:8000. Lệnh `cmms:create-admin` hỏi mật khẩu tương tác; không có tài khoản quản trị mặc định. Giữ nguyên APP_KEY khi dùng dữ liệu đã chuyển hoặc khôi phục bản sao lưu. Nếu chưa có Groq key, trợ lý tra cứu sản phẩm trong danh mục nội bộ; khi có key, trợ lý dùng Groq và bộ kiến thức tư vấn khách hàng.
 
 ## Tài khoản kiểm thử trên cơ sở dữ liệu hiện tại
 
@@ -30,7 +24,7 @@ Vào URL do `artisan serve` in ra. Lệnh `cmms:create-admin` hỏi mật khẩu
 | Quản lý | `qa_manager` |
 | Quản trị viên | `qa_admin` |
 
-Các tài khoản trên đang hoạt động trong cơ sở dữ liệu kiểm thử hiện tại; `migrate --seed` không tự tạo lại chúng. Bộ tài khoản thử có tên kết thúc bằng `_20261010` đã bị vô hiệu hóa. Mật khẩu không được ghi trong README; nếu cần dùng lại sau khi khởi tạo cơ sở dữ liệu mới, hãy tạo tài khoản qua phần quản trị hoặc lệnh tạo quản trị viên ở trên.
+Các tên tài khoản trên là dữ liệu tham khảo của database kiểm thử cũ; `db:seed` không tự tạo lại chúng. Sau chuyển đổi, ứng dụng giữ tài khoản thực sự có trong snapshot MySQL. Tài khoản QA phục vụ nghiệm thu 7 vai trò được tạo trong database riêng, không thêm vào dữ liệu vận hành.
 
 ## Quy trình hiện có
 
@@ -44,4 +38,4 @@ Khách đăng ký, xem 15 sản phẩm mỗi trang, lập giỏ yêu cầu báo 
 - Groq chưa thể kiểm tra trực tiếp cho đến khi cấu hình API key.
 - Biên bản thu hồi tại công trình, xử lý sai lệch từ nhà cung cấp, điều phối nhiều chuyến và bộ báo cáo chi tiết theo mọi tiêu chí của tài liệu cần tiếp tục đối chiếu và mở rộng.
 
-Chạy `php artisan test` để kiểm tra các quy trình hiện có.
+Chạy bộ test MongoDB trên database riêng theo README gốc. Hệ thống từ chối reset dữ liệu nếu tên database không thuộc vùng kiểm thử. Hai kiểm tra DDL SQL tiếp tục chạy trên SQLite/MySQL; nghiệp vụ, transaction và kiểm tra tham chiếu được chạy trực tiếp trên MongoDB.

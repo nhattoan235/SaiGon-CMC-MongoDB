@@ -56,6 +56,12 @@
                 @if(auth()->user()->hasPermission('management.view'))
                     <a href="{{ route('management.index') }}" @class(['is-active' => request()->routeIs('management.index')]) @if(request()->routeIs('management.index')) aria-current="page" @endif>@include('staff.nav-icon', ['name' => 'management'])Danh mục & quản trị</a>
                 @endif
+                @if(auth()->user()->role === 'accounting')
+                    <a href="{{ route('staff.vietqr.index') }}" @class(['is-active' => request()->routeIs('staff.vietqr.*')]) @if(request()->routeIs('staff.vietqr.*')) aria-current="page" @endif>@include('staff.nav-icon', ['name' => 'finance'])Chuyển khoản VietQR</a>
+                @endif
+                @if(auth()->user()->role === 'admin')
+                    <a href="{{ route('management.bank-accounts.index') }}" @class(['is-active' => request()->routeIs('management.bank-accounts.*')]) @if(request()->routeIs('management.bank-accounts.*')) aria-current="page" @endif>@include('staff.nav-icon', ['name' => 'management'])Tài khoản VietQR</a>
+                @endif
                 @if(auth()->user()->hasPermission('backups.manage'))
                     <a href="{{ route('management.backups.index') }}" @class(['is-active' => request()->routeIs('management.backups.*')]) @if(request()->routeIs('management.backups.*')) aria-current="page" @endif>@include('staff.nav-icon', ['name' => 'management'])Sao lưu & khôi phục</a>
                 @endif

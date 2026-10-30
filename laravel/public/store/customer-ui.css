@@ -1,4 +1,18 @@
 /* Customer order forms, account tools and contract state. */
+@media(max-width:767px){
+    .site-header .topbar{grid-template-columns:minmax(0,1fr) auto;gap:12px}
+    .site-header .brand{justify-self:start;min-width:0;white-space:nowrap}
+    .site-header .header-actions{gap:4px}
+    .site-header .header-actions :is(.icon-link,.theme-toggle){width:44px;height:44px;flex-shrink:0}
+    .site-header .cart-count{right:0;top:0}
+    .site-header .account-dropdown-menu{top:100%!important;right:0!important;left:auto!important;transform:none!important;margin-top:8px!important;animation:none}
+}
+@media(max-width:379px){
+    .site-header .topbar{padding-inline:16px;gap:8px}
+    .site-header .brand{font-size:12px;gap:8px}
+    .site-header .brand small{font-size:5.5px}
+    .site-header .brand-mark{width:28px;height:28px;font-size:21px;flex-shrink:0}
+}
 form.order-card.row:has([name="building_type"]){display:grid!important;grid-template-columns:minmax(190px,1.4fr) minmax(150px,1fr) minmax(130px,.7fr) minmax(170px,1fr);align-items:end;gap:16px;margin:0 0 14px;padding:clamp(20px,2.4vw,32px)}
 form.order-card.row:has([name="building_type"])>div{width:auto;max-width:none;padding:0;margin:0;min-width:0}
 form.order-card.row:has([name="building_type"]) .form-label{display:block;width:100%;margin:0;font-size:12px;font-weight:700}

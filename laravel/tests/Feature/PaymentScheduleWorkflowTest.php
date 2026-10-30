@@ -7,15 +7,26 @@ use App\Services\CommerceWorkflow;
 use App\Services\FulfillmentWorkflow;
 use App\Services\PaymentScheduleWorkflow;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class PaymentScheduleWorkflowTest extends TestCase
 {
+    private function clearLegacyScheduleFixture(): void
+    {
+        foreach (['installment_adjustments', 'payment_allocations', 'payment_installments'] as $table) {
+            if (DB::connection()->getDriverName() === 'mongodb') {
+                DB::connection()->mongo->selectCollection($table)->deleteMany([]);
+            } else {
+                Schema::dropIfExists($table);
+            }
+        }
+    }
+
     use RefreshDatabase;
 
     public function test_one_payment_is_allocated_across_installments_and_only_required_installments_gate_release(): void
@@ -341,6 +352,9 @@ class PaymentScheduleWorkflowTest extends TestCase
 
     public function test_migration_recreates_idempotency_unique_index_when_column_already_exists(): void
     {
+        if (DB::connection()->getDriverName() === 'mongodb') {
+            $this->markTestSkipped('Kiểm tra DDL của migration SQL; MongoDB cài index bằng MongoInstaller.');
+        }
         Schema::table('payments', function (Blueprint $table) {
             $table->dropUnique(['idempotency_key']);
         });
@@ -354,6 +368,9 @@ class PaymentScheduleWorkflowTest extends TestCase
 
     public function test_migration_restores_schedule_constraints_when_tables_already_exist(): void
     {
+        if (DB::connection()->getDriverName() === 'mongodb') {
+            $this->markTestSkipped('Kiểm tra DDL của migration SQL; MongoDB kiểm tra tham chiếu khi commit.');
+        }
         Schema::table('contracts', fn (Blueprint $table) => $table->dropForeign(['payment_schedule_draft_by']));
         Schema::table('payment_installments', function (Blueprint $table) {
             $table->dropUnique(['debt_id', 'sequence']);
@@ -395,9 +412,7 @@ class PaymentScheduleWorkflowTest extends TestCase
         $paymentId = $this->payment($debtId, $accountant->id, '90.00', 'PAY-LEGACY-RETURN');
         DB::table('debts')->where('id', $debtId)->update(['amount' => 80, 'paid' => 90, 'status' => 'settled']);
 
-        Schema::dropIfExists('installment_adjustments');
-        Schema::dropIfExists('payment_allocations');
-        Schema::dropIfExists('payment_installments');
+        $this->clearLegacyScheduleFixture();
         $migration = require database_path('migrations/2026_10_28_140000_add_payment_installment_schedules.php');
         $migration->up();
         $migration->up();
@@ -455,16 +470,14 @@ class PaymentScheduleWorkflowTest extends TestCase
         $paymentId = $this->payment($debtId, $accountant->id, '90.00', 'PAY-MULTI-RETURN');
         DB::table('debts')->where('id', $debtId)->update(['amount' => 70, 'paid' => 90, 'status' => 'settled']);
 
-        Schema::dropIfExists('installment_adjustments');
-        Schema::dropIfExists('payment_allocations');
-        Schema::dropIfExists('payment_installments');
+        $this->clearLegacyScheduleFixture();
         $migration = require database_path('migrations/2026_10_28_140000_add_payment_installment_schedules.php');
         $migration->up();
         $migration->up();
 
-        $this->assertSame(-10, DB::table('installment_adjustments')->where('return_id', $earlierReturnId)->sum('amount'));
+        $this->assertSame(0, bccomp((string) DB::table('installment_adjustments')->where('return_id', $earlierReturnId)->sum('amount'), '-10.00', 2));
         $this->assertSame(0, DB::table('installment_adjustments')->where('return_id', $laterReturnId)->count());
-        $this->assertSame(90, DB::table('payment_allocations')->where('payment_id', $paymentId)->sum('amount'));
+        $this->assertSame(0, bccomp((string) DB::table('payment_allocations')->where('payment_id', $paymentId)->sum('amount'), '90.00', 2));
     }
 
     public function test_legacy_backfill_stops_when_legacy_return_order_is_ambiguous_and_unpaid_amount_remains(): void
@@ -491,9 +504,7 @@ class PaymentScheduleWorkflowTest extends TestCase
         $this->payment($debtId, $accountant->id, '90.00', 'PAY-AMBIG-RETURN');
         DB::table('debts')->where('id', $debtId)->update(['amount' => 70, 'paid' => 90, 'status' => 'settled']);
 
-        Schema::dropIfExists('installment_adjustments');
-        Schema::dropIfExists('payment_allocations');
-        Schema::dropIfExists('payment_installments');
+        $this->clearLegacyScheduleFixture();
         $migration = require database_path('migrations/2026_10_28_140000_add_payment_installment_schedules.php');
 
         $manualReconciliationRequired = false;

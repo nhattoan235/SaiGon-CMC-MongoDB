@@ -7,10 +7,10 @@ use App\Services\CommerceWorkflow;
 use App\Services\FulfillmentWorkflow;
 use App\Support\UiFormat;
 use Database\Seeders\DemoOpeningStockSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class CommerceWorkflowTest extends TestCase

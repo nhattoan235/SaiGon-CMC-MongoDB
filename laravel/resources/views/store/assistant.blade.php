@@ -24,7 +24,7 @@
                         <div class="chat-product-body">
                             <h3>{{ $product['name'] }}</h3><p>{{ $product['specification'] }}</p>
                             <strong>{{ $product['price'] }}</strong><small>Giá tham khảo · Hình minh họa</small>
-                            <a href="{{ $product['url'] }}" class="chat-product-link">Xem chi tiết sản phẩm →</a>
+                            <a href="{{ $product['url'] }}" class="chat-product-link">Xem chi tiết sản phẩm</a>
                         </div>
                     </article>
                 @endforeach

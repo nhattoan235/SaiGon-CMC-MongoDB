@@ -17,3 +17,5 @@
 **/public/storage/
 **/public/build/
 .worktrees/
+/qa-*.xml
+/qa-browser-*.png

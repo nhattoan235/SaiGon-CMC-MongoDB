@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'mongodb'),
 
     /*
     |--------------------------------------------------------------------------
@@ -31,6 +31,13 @@ return [
     */
 
     'connections' => [
+
+        'mongodb' => [
+            'driver' => 'mongodb',
+            'dsn' => env('MONGODB_URI', 'mongodb://mongo:27017/?replicaSet=cmc-rs'),
+            'database' => env('MONGODB_DATABASE', 'cmms_mongodb_staging'),
+            'options' => ['serverSelectionTimeoutMS' => 10000],
+        ],
 
         'sqlite' => [
             'driver' => 'sqlite',

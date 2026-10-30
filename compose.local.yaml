@@ -1,3 +1,4 @@
+# Legacy MySQL environment for migration and recovery. Normal runtime: compose.mongodb.yaml.
 services:
   db:
     image: mysql:8.4

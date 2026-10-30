@@ -1,0 +1,14 @@
+@extends('layouts.store')
+@section('title', 'Thanh toán chuyển khoản | Sài Gòn CMC')
+@section('content')
+<div class="container-fluid container-wide pb-5"><div class="page-intro"><div class="breadcrumbs"><a href="{{ route('home') }}">Trang chủ</a> / <a href="{{ route('my.orders') }}">Đơn hàng</a> / Chuyển khoản</div><h1 class="page-title">Thanh toán chuyển khoản</h1><p class="page-subtitle">Kiểm tra người nhận, số tiền và nội dung trước khi chuyển. Kế toán chỉ ghi nhận thanh toán sau khi đối chiếu tiền thực nhận.</p></div>
+    @forelse($requests as $transfer)
+        <article class="order-card mb-4"><div class="order-head"><strong>{{ $transfer->code }} · {{ $transfer->debt_code }}</strong><span>{{ ['pending'=>'Chờ chuyển khoản','claimed'=>'Đang chờ kế toán đối chiếu','confirmed'=>'Đã thanh toán','cancelled'=>'Đã hủy'][$transfer->status] ?? $transfer->status }}</span></div>
+            <div class="row g-4 align-items-center mt-1"><div class="col-md-5">@if(in_array($transfer->status, ['pending','claimed'], true))<img src="{{ $transfer->qr_url }}" alt="Mã VietQR chuyển {{ number_format((float) $transfer->amount, 0, ',', '.') }} đồng tới {{ $transfer->account_name }}" width="320" height="380" class="img-fluid" referrerpolicy="no-referrer"><p class="small muted">Nếu ảnh QR không tải được, dùng thông tin chuyển khoản bên cạnh.</p>@endif</div><div class="col-md-7"><dl class="row mb-3"><dt class="col-sm-4">Ngân hàng</dt><dd class="col-sm-8">{{ $transfer->bank_name }}</dd><dt class="col-sm-4">Số tài khoản</dt><dd class="col-sm-8"><strong>{{ $transfer->account_no }}</strong></dd><dt class="col-sm-4">Chủ tài khoản</dt><dd class="col-sm-8">{{ $transfer->account_name }}</dd><dt class="col-sm-4">Số tiền</dt><dd class="col-sm-8"><strong>{{ number_format((float) $transfer->amount, 0, ',', '.') }} ₫</strong></dd><dt class="col-sm-4">Nội dung</dt><dd class="col-sm-8"><strong>{{ $transfer->transfer_content }}</strong></dd></dl><p class="small">Mã QR chỉ hướng dẫn chuyển tiền, không xác nhận giao dịch đã thành công.</p>
+                @if(in_array($transfer->status, ['pending','claimed'], true))<form method="post" action="{{ route('my.transfers.claim', $transfer->id) }}">@csrf<label class="form-label">Mã giao dịch của bạn (nếu có)<input class="form-control" name="reference" maxlength="100" value="{{ $transfer->customer_reference }}"></label><button class="btn-editorial dark mt-2">Tôi đã chuyển khoản</button></form>@endif
+                @if($transfer->rejected_reason)<p>Lý do hủy: {{ $transfer->rejected_reason }}</p>@endif
+            </div></div>
+        </article>
+    @empty<div class="empty-state"><h2>Chưa có yêu cầu chuyển khoản</h2><p>Kế toán sẽ tạo mã VietQR khi khoản phải thu đủ điều kiện.</p><a href="{{ route('my.orders') }}">Xem đơn hàng</a></div>@endforelse
+</div>
+@endsection

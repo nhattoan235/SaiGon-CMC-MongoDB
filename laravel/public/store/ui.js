@@ -288,7 +288,7 @@ if (chatPanel && chatLauncher && chatForm) {
                     link.addEventListener('click', persistChat);
                     link.rel = 'noopener';
                     link.className = 'chat-product-link';
-                    link.textContent = 'Xem chi tiết sản phẩm →';
+                    link.textContent = 'Xem chi tiết sản phẩm';
                     body.append(title, spec, price, note, link);
                     card.append(photoLink, body);
                     cards.append(card);

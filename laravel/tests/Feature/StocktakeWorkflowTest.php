@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Services\FulfillmentWorkflow;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class StocktakeWorkflowTest extends TestCase

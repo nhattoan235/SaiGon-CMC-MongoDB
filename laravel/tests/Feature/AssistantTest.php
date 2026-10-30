@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Services\RagService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class AssistantTest extends TestCase
@@ -73,7 +73,7 @@ class AssistantTest extends TestCase
         config(['services.groq.key' => 'test-secret', 'services.groq.model' => 'openai/gpt-oss-20b']);
         Http::preventStrayRequests();
         Http::fake(['https://api.groq.com/openai/v1/chat/completions' => Http::response([
-            'choices' => [['message' => ['content' => 'Hãy xem xi măng PCB40.']]],
+            'choices' => [['message' => ['content' => 'Hãy xem xi măng PCB40 [2].']]],
         ])]);
         $this->fakeRetrievedKnowledge();
         $response = $this->post('/assistant', ['question' => 'Nên chọn xi măng nào cho công trình, cho tôi xem giá và tư vấn kỹ thuật?']);
@@ -91,6 +91,20 @@ class AssistantTest extends TestCase
                 && str_contains($prompt, 'Xi măng PCB40')
                 && str_contains($prompt, '123.456 đồng/bao');
         });
+    }
+
+    public function test_assistant_rejects_ai_answers_without_valid_source_citations(): void
+    {
+        config(['services.groq.key' => 'test-secret']);
+        Http::preventStrayRequests();
+        Http::fake(['https://api.groq.com/openai/v1/chat/completions' => Http::response([
+            'choices' => [['message' => ['content' => 'Bạn có thể xem công nợ trong tài khoản.']]],
+        ])]);
+        $this->fakeRetrievedKnowledge();
+
+        $this->postJson('/assistant', ['question' => 'Tôi xem công nợ ở đâu?'])
+            ->assertOk()
+            ->assertExactJson(['reply' => 'Mình chưa có đủ căn cứ từ kho tri thức để trả lời câu này. Bạn liên hệ nhân viên để được xác nhận nhé.']);
     }
 
     public function test_assistant_searches_local_catalog_when_groq_key_is_missing(): void
@@ -136,7 +150,7 @@ class AssistantTest extends TestCase
         config(['services.groq.key' => 'test-secret']);
         Http::preventStrayRequests();
         Http::fake(['https://api.groq.com/openai/v1/chat/completions' => Http::response([
-            'choices' => [['message' => ['content' => 'Hãy mở mục tương ứng trong tài khoản cửa hàng.']]],
+            'choices' => [['message' => ['content' => 'Hãy mở mục tương ứng trong tài khoản cửa hàng [1].']]],
         ])]);
         $this->fakeRetrievedKnowledge();
 

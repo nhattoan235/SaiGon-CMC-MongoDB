@@ -34,7 +34,7 @@
   <div class="staff-overview-grid" aria-label="Bản ghi gần đây">
     @foreach($staffSections as $key => [$label, $icon, $permissions])
       @if(collect($permissions)->contains(fn ($permission) => auth()->user()->hasPermission($permission)))
-      <a class="staff-stat" href="{{ route('staff.section', $key) }}"><span class="staff-stat-label">{{ $label }}</span><strong>{{ $staffCounts[$key] }}</strong><small>Xem hồ sơ <span aria-hidden="true">↗</span></small></a>
+      <a class="staff-stat" href="{{ route('staff.section', $key) }}"><span class="staff-stat-label">{{ $label }}</span><strong>{{ $staffCounts[$key] }}</strong><small>Xem hồ sơ</small></a>
       @endif
     @endforeach
   </div>
@@ -80,8 +80,9 @@
               <form class="d-flex gap-1 flex-wrap" method="post" action="{{ route('staff.payments.record',$debt->id) }}">@csrf
                 <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                 <input class="form-control form-control-sm" style="width:105px" type="number" name="amount" min="0.01" step="0.01" placeholder="Số tiền" required data-payment-amount>
-                <select class="form-select form-select-sm" style="width:130px" name="method"><option value="cash">Tiền mặt</option><option value="bank_transfer">Chuyển khoản</option></select>
+                <select class="form-select form-select-sm" style="width:130px" name="method"><option value="cash">Tiền mặt</option>@if($debt->direction === 'payable')<option value="bank_transfer">Chuyển khoản</option>@endif</select>
                 <input class="form-control form-control-sm" style="width:110px" name="reference" placeholder="Mã giao dịch"><button class="btn btn-dark btn-sm">Ghi nhận</button>
+                @if($debt->direction === 'receivable' && auth()->user()->role === 'accounting')<a class="btn btn-outline-dark btn-sm" href="{{ route('staff.vietqr.index') }}">Tạo VietQR</a>@endif
                 @include('staff.partials.payment-allocation-preview', ['scheduleRows' => $paymentSchedules[$debt->id] ?? []])
               </form>
             @elseif($debt->order_code && $debt->requires_contract && $debt->contract_status !== 'signed')<small>Chờ hợp đồng đã ký</small>@endif

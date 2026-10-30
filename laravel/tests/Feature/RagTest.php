@@ -5,12 +5,12 @@ namespace Tests\Feature;
 use App\Jobs\IndexKnowledgeDocument;
 use App\Models\User;
 use App\Services\RagService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class RagTest extends TestCase
