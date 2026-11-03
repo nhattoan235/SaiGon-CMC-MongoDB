@@ -2,16 +2,11 @@
     <h2 class="h4" id="supplier-return-heading">Bù trừ hàng hỏng trả nhà cung cấp</h2>
     @foreach($supplierReturns as $supplierReturn)
         <article class="order-card">
-            <strong>{{ $supplierReturn->code }}</strong> · {{ $supplierReturn->supplier_name ?? 'Nhà cung cấp #'.$supplierReturn->supplier_id }} · {{ \App\Support\UiFormat::quantity($supplierReturn->quantity) }} đơn vị
+            <strong>{{ $supplierReturn->code }}</strong> · nhà cung cấp #{{ $supplierReturn->supplier_id }} · {{ \App\Support\UiFormat::quantity($supplierReturn->quantity) }} đơn vị
             <p class="mb-1">{{ $supplierReturn->note }}</p>
-            @if($supplierReturn->responsibility_confirmed_at)
-                <p class="small">Trách nhiệm xác nhận bởi {{ $supplierReturn->responsibility_confirmer_name ?? 'nhân viên #'.$supplierReturn->responsibility_confirmed_by }} · {{ \Carbon\Carbon::parse($supplierReturn->responsibility_confirmed_at)->format('d/m/Y H:i') }}<br>Căn cứ: {{ $supplierReturn->responsibility_evidence }}</p>
-            @else
-                <p class="small text-warning-emphasis">Phiếu cũ chưa lưu căn cứ xác minh trách nhiệm nhà cung cấp.</p>
-            @endif
             @if($supplierReturn->settled_at)
                 <p class="mb-0">Đã bù trừ {{ number_format($supplierReturn->credit_amount, 0, ',', '.') }} ₫ · {{ $supplierReturn->settlement_note }}</p>
-            @elseif(auth()->user()->hasPermission('supplier.debts.manage'))
+            @elseif(in_array($role, ['accounting', 'admin']))
                 <form method="post" action="{{ route('staff.supplier-returns.settle', $supplierReturn->id) }}" class="d-flex flex-wrap gap-2 align-items-end">
                     @csrf
                     <label>Công nợ cùng nhà cung cấp

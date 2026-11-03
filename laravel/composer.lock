@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fd865db617022c92e9e41827502f1eb4",
+    "content-hash": "5fc4c25b3e149d684895c0d981e68ee2",
     "packages": [
         {
             "name": "brick/math",
@@ -2521,16 +2521,16 @@
         },
         {
             "name": "mongodb/laravel-mongodb",
-            "version": "5.12.0",
+            "version": "5.11.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/mongodb/laravel-mongodb.git",
-                "reference": "faea6c1c6e34098becd7dd24f19ebaabb824aca0"
+                "url": "https://github.com/mongodb/laravel-mongodb",
+                "reference": "0634653039468ceb0268a69192bdac64469ed043"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mongodb/laravel-mongodb/zipball/faea6c1c6e34098becd7dd24f19ebaabb824aca0",
-                "reference": "faea6c1c6e34098becd7dd24f19ebaabb824aca0",
+                "url": "https://api.github.com/repos/mongodb/laravel-mongodb/zipball/0634653039468ceb0268a69192bdac64469ed043",
+                "reference": "0634653039468ceb0268a69192bdac64469ed043",
                 "shasum": ""
             },
             "require": {
@@ -2541,7 +2541,7 @@
                 "illuminate/database": "^12.51|^13.0",
                 "illuminate/events": "^12|^13.0",
                 "illuminate/support": "^12|^13.0",
-                "mongodb/mongodb": "^1.21.2|^2.1.1",
+                "mongodb/mongodb": "^1.21|^2",
                 "php": "^8.2",
                 "symfony/polyfill-php86": "^1.38"
             },
@@ -2624,10 +2624,9 @@
             ],
             "support": {
                 "issues": "https://www.mongodb.com/support",
-                "security": "https://www.mongodb.com/security",
-                "source": "https://github.com/mongodb/laravel-mongodb/tree/5.12.0"
+                "security": "https://www.mongodb.com/security"
             },
-            "time": "2026-10-26T14:53:54+00:00"
+            "time": "2026-09-10T12:22:19+00:00"
         },
         {
             "name": "mongodb/mongodb",
@@ -5042,16 +5041,16 @@
         },
         {
             "name": "symfony/mime",
-            "version": "v7.4.22",
+            "version": "v7.4.19",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/mime.git",
-                "reference": "94a4c017435bc515f5ac80421a2c555fb9ca3676"
+                "reference": "f8ac7d0a800bcabbcd1f7de56594cf05e6cd5693"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/mime/zipball/94a4c017435bc515f5ac80421a2c555fb9ca3676",
-                "reference": "94a4c017435bc515f5ac80421a2c555fb9ca3676",
+                "url": "https://api.github.com/repos/symfony/mime/zipball/f8ac7d0a800bcabbcd1f7de56594cf05e6cd5693",
+                "reference": "f8ac7d0a800bcabbcd1f7de56594cf05e6cd5693",
                 "shasum": ""
             },
             "require": {
@@ -5107,7 +5106,7 @@
                 "mime-type"
             ],
             "support": {
-                "source": "https://github.com/symfony/mime/tree/v7.4.22"
+                "source": "https://github.com/symfony/mime/tree/v7.4.19"
             },
             "funding": [
                 {
@@ -5127,7 +5126,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-28T17:57:58+00:00"
+            "time": "2026-09-04T10:45:44+00:00"
         },
         {
             "name": "symfony/polyfill-ctype",
@@ -5468,16 +5467,16 @@
         },
         {
             "name": "symfony/polyfill-mbstring",
-            "version": "v1.43.3",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-mbstring.git",
-                "reference": "122889ed24dc000165bcbfd77ec412f15cbdfc6a"
+                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/122889ed24dc000165bcbfd77ec412f15cbdfc6a",
-                "reference": "122889ed24dc000165bcbfd77ec412f15cbdfc6a",
+                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
+                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
                 "shasum": ""
             },
             "require": {
@@ -5529,7 +5528,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.3"
+                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -5549,7 +5548,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-28T09:35:49+00:00"
+            "time": "2026-09-24T15:19:04+00:00"
         },
         {
             "name": "symfony/polyfill-php80",

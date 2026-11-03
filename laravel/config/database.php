@@ -34,9 +34,9 @@ return [
 
         'mongodb' => [
             'driver' => 'mongodb',
-            'dsn' => env('MONGODB_URI', 'mongodb://mongo:27017/?replicaSet=cmc-rs'),
-            'database' => env('MONGODB_DATABASE', 'cmms_mongodb_staging'),
-            'options' => ['serverSelectionTimeoutMS' => 10000],
+            'dsn' => env('MONGODB_URI', 'mongodb://127.0.0.1:27028/?replicaSet=cmcMongoRs'),
+            'database' => env('MONGODB_DATABASE', 'cmc_mongodb'),
+            'options' => [],
         ],
 
         'sqlite' => [

@@ -19,7 +19,7 @@ jobs:
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       DB_CONNECTION: mongodb
       DB_URL: ''
-      MONGODB_DATABASE: cmms_mongo_test_ci
+      MONGODB_DATABASE: cmc_mongo_test_ci
       MONGODB_URI: mongodb://127.0.0.1:27028/?replicaSet=cmcMongoRs
       SESSION_DRIVER: array
       CACHE_STORE: array

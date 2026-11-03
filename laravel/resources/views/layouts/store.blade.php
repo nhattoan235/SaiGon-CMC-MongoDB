@@ -3,25 +3,21 @@
 <body><a class="skip-link" href="#main">Bỏ qua điều hướng</a><div class="announcement">Giao hàng linh hoạt cho công trình <span aria-hidden="true">·</span> Tư vấn vật tư theo khối lượng <span aria-hidden="true">·</span> <a href="{{ route('estimate') }}">Dự toán ngay</a></div>
 <header class="site-header" id="siteHeader">
     <div class="container-fluid container-wide topbar">
+        <a class="small-link d-none d-md-inline" href="{{ route('catalog') }}">Tư vấn công trình</a>
         <a class="brand" href="{{ route('home') }}" aria-label="Sài Gòn CMC, về trang chủ"><span class="brand-mark" aria-hidden="true">S</span><span>SÀI GÒN CMC<small>VẬT LIỆU XÂY DỰNG</small></span></a>
         <div class="header-actions">
             @include('layouts.theme-toggle')
             <div class="dropdown account-dropdown">
                 <button class="icon-link account-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Mở menu tài khoản">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c.4-4 3-6 7.5-6s7.1 2 7.5 6"/></svg>
-                    <span class="account-trigger-label">Tài khoản</span>
                 </button>
                 <div class="dropdown-menu dropdown-menu-end account-dropdown-menu">
                     @auth
                         <div class="account-dropdown-head"><span class="eyebrow muted">TÀI KHOẢN</span><strong>{{ auth()->user()->name }}</strong></div>
                         @if(auth()->user()->role === 'customer')
-                            <span class="account-dropdown-section-label">HỒ SƠ MUA HÀNG</span>
-                            <a class="dropdown-item" href="{{ route('my.dashboard') }}">Tổng quan hồ sơ</a>
                             <a class="dropdown-item" href="{{ route('my.quotes') }}">Báo giá của tôi</a>
                             <a class="dropdown-item" href="{{ route('my.contracts') }}">Hợp đồng</a>
                             <a class="dropdown-item" href="{{ route('my.orders') }}">Đơn hàng của tôi</a>
-                            <a class="dropdown-item" href="{{ route('my.transfers.index') }}">Thanh toán chuyển khoản</a>
-                            <span class="account-dropdown-section-label">CÁ NHÂN</span>
                             <a class="dropdown-item" href="{{ route('profile') }}">Thông tin cá nhân</a>
                         @else
                             <a class="dropdown-item" href="{{ route('staff.dashboard') }}">Bảng làm việc</a>
@@ -38,25 +34,18 @@
     </div>
     <div class="container-fluid container-wide nav-row">
         <button class="menu-trigger" type="button" data-bs-toggle="offcanvas" data-bs-target="#siteMenu" aria-controls="siteMenu"><span class="menu-lines" aria-hidden="true"></span><span>Menu</span></button>
-        <nav class="desktop-nav" aria-label="Điều hướng chính"><a href="{{ route('catalog') }}">Sản phẩm</a><a href="{{ route('estimate') }}">Dự toán nhanh</a>@auth @if(auth()->user()->role === 'customer')<a href="{{ route('my.orders') }}">Đơn hàng của tôi</a>@endif @endauth</nav>
+        <nav class="desktop-nav" aria-label="Điều hướng chính"><a href="{{ route('catalog') }}">Sản phẩm</a><a href="{{ route('estimate') }}">Dự toán vật liệu</a></nav>
         <form class="header-search" action="{{ route('catalog') }}" role="search"><label for="searchInput" class="visually-hidden">Tìm sản phẩm</label><input id="searchInput" name="q" type="search" value="{{ request('q') }}" placeholder="Tìm vật liệu cho công trình..."><button type="submit" aria-label="Tìm kiếm"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button></form>
     </div>
 </header>
 <div class="offcanvas offcanvas-start site-menu" tabindex="-1" id="siteMenu" aria-labelledby="menuTitle">
     <div class="offcanvas-header site-menu-head"><div><span class="eyebrow muted">Sài Gòn CMC</span><h2 class="offcanvas-title" id="menuTitle">Khám phá vật liệu.</h2></div><button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Đóng menu"></button></div>
     <nav class="offcanvas-body site-menu-body" aria-label="Menu cửa hàng">
-        <span class="site-menu-label">Mua vật liệu</span>
+        <span class="site-menu-label">Cửa hàng</span>
         <a href="{{ route('home') }}">Trang chủ</a>
-        <a href="{{ route('catalog') }}">Sản phẩm</a>
-        <a href="{{ route('estimate') }}">Dự toán nhanh</a>
-        <a href="{{ route('cart') }}">Giỏ hàng</a>
-        @auth
-            @if(auth()->user()->role === 'customer')
-                <span class="site-menu-label">Theo dõi mua hàng</span>
-                <a href="{{ route('my.dashboard') }}">Tổng quan hồ sơ</a>
-                <a href="{{ route('my.orders') }}">Đơn hàng của tôi</a>
-            @endif
-        @endauth
+        <a href="{{ route('catalog') }}">Tất cả vật liệu</a>
+        <a href="{{ route('estimate') }}">Dự toán công trình</a>
+        <a href="{{ route('cart') }}">Giỏ vật liệu</a>
     </nav>
     <div class="site-menu-footer"><span class="eyebrow">Đồng hành cùng công trình</span><p>Chọn đúng vật liệu. Theo dõi từng bước, từ báo giá đến giao nhận.</p></div>
 </div>
@@ -76,4 +65,4 @@
 @endif
 <aside class="chat-widget" aria-label="Trợ lý AI"><section class="chat-panel" id="chatPanel" aria-labelledby="chatTitle" hidden><div class="chat-header"><div class="chat-avatar" aria-hidden="true">S</div><div><strong id="chatTitle">Trợ lý Sài Gòn CMC</strong><small>Tư vấn vật liệu xây dựng</small></div><button class="chat-close" type="button" aria-label="Đóng trò chuyện" data-chat-close>×</button></div><div class="chat-messages" id="chatMessages" role="log" aria-live="polite"><p class="chat-message assistant">Xin chào! Bạn đang tìm vật liệu cho công trình nào? Mình có thể gợi ý theo danh mục hiện có.</p></div><p class="chat-note">Giá và khối lượng cần được nhân viên xác nhận trong báo giá.</p><form class="chat-form" id="chatForm" action="{{ route('assistant.ask') }}" method="post">@csrf<label class="visually-hidden" for="chatQuestion">Nhập câu hỏi</label><textarea id="chatQuestion" name="question" rows="2" minlength="3" maxlength="1000" placeholder="Nhập câu hỏi của bạn..." required></textarea><button type="submit" aria-label="Gửi câu hỏi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button></form></section><button class="chat-launcher" type="button" aria-label="Mở trợ lý AI" aria-controls="chatPanel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h5"/></svg></button></aside>
 @include('layouts.store-footer')
-<script src="{{ asset('store/bootstrap.bundle.min.js') }}"></script><script src="{{ asset('store/components.js') }}?v={{ filemtime(public_path('store/components.js')) }}" defer></script><script src="{{ asset('store/ui.js') }}?v={{ filemtime(public_path('store/ui.js')) }}" defer></script><script src="{{ asset('store/theme.js') }}?v={{ filemtime(public_path('store/theme.js')) }}" defer></script><script src="{{ asset('store/customer-ui.js') }}?v={{ filemtime(public_path('store/customer-ui.js')) }}" defer></script></body></html>
+<script src="{{ asset('store/bootstrap.bundle.min.js') }}"></script><script src="{{ asset('store/components.js') }}?v={{ filemtime(public_path('store/components.js')) }}" defer></script><script src="{{ asset('store/ui.js') }}" defer></script><script src="{{ asset('store/theme.js') }}?v={{ filemtime(public_path('store/theme.js')) }}" defer></script><script src="{{ asset('store/customer-ui.js') }}?v={{ filemtime(public_path('store/customer-ui.js')) }}" defer></script></body></html>

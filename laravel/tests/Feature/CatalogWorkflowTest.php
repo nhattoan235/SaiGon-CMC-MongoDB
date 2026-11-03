@@ -5,12 +5,12 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Services\CatalogWorkflow;
 use Illuminate\Support\Facades\DB;
-use Tests\RefreshDocumentDatabase as RefreshDatabase;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class CatalogWorkflowTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     public function test_catalog_proposal_changes_product_only_after_management_approval(): void
     {

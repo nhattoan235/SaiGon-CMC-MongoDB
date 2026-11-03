@@ -8,9 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ManagementController extends Controller
@@ -25,11 +23,6 @@ class ManagementController extends Controller
             'suppliers' => DB::table('suppliers')->orderBy('name')->get(),
             'warehouses' => DB::table('warehouses')->orderBy('name')->get(),
             'customers' => DB::table('customers')->join('users', 'users.id', '=', 'customers.user_id')->select('customers.*', 'users.name')->get(),
-            'roles' => DB::table('roles')->orderBy('name')->get(),
-            'permissions' => DB::table('permissions')->orderBy('code')->get(),
-            'rolePermissions' => DB::table('role_permissions')->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
-                ->select('role_permissions.role_id', 'permissions.code')->get()->groupBy('role_id')
-                ->map(fn ($rows) => $rows->pluck('code')->values()),
         ]);
     }
 
@@ -117,7 +110,7 @@ class ManagementController extends Controller
             'name' => ['required', 'string', 'max:150'], 'username' => ['required', 'string', 'max:100', 'unique:users,username'],
             'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
             'email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
-            'role' => ['required', 'exists:roles,code'],
+            'role' => ['required', 'in:customer,sales,warehouse,accounting,manager,admin,delivery'],
             'password' => ['required', 'string', 'min:10'],
         ]);
         DB::transaction(function () use ($data) {
@@ -135,31 +128,10 @@ class ManagementController extends Controller
 
     public function updateUser(Request $request, int $id): RedirectResponse
     {
-        $data = $request->validate(['role' => ['required', 'exists:roles,code'], 'status' => ['required', 'in:active,disabled']]);
+        $data = $request->validate(['role' => ['required', 'in:customer,sales,warehouse,accounting,manager,admin,delivery'], 'status' => ['required', 'in:active,disabled']]);
         abort_if($id === $request->user()->id && ($data['role'] !== 'admin' || $data['status'] !== 'active'), 422);
         DB::transaction(function () use ($id, $data) {
-            $activeAdmins = DB::table('users')->where('role', 'admin')->where('status', 'active')
-                ->orderBy('id')->lockForUpdate()->get(['id']);
-            $target = DB::table('users')->where('id', $id)->lockForUpdate()->first();
-            abort_unless($target, 404);
-
-            $crossingAccountBoundary = ($target->role === 'customer') !== ($data['role'] === 'customer');
-            if ($crossingAccountBoundary && $this->hasAccountHistory($id)) {
-                throw ValidationException::withMessages([
-                    'workflow' => 'Tài khoản đã có lịch sử nghiệp vụ không thể chuyển giữa khách hàng và nhân viên. Hãy tạo tài khoản riêng để giữ nguyên lịch sử.',
-                ]);
-            }
-
-            $removingActiveAdmin = $target->role === 'admin' && $target->status === 'active'
-                && ($data['role'] !== 'admin' || $data['status'] !== 'active');
-            if ($removingActiveAdmin && $activeAdmins->count() <= 1) {
-                throw ValidationException::withMessages([
-                    'workflow' => 'Không thể vô hiệu hóa hoặc hạ quyền quản trị viên đang hoạt động cuối cùng.',
-                ]);
-            }
-
-            $roleId = DB::table('roles')->where('code', $data['role'])->value('id');
-            DB::table('users')->where('id', $id)->update($data + ['role_id' => $roleId, 'updated_at' => now()]);
+            DB::table('users')->where('id', $id)->update($data + ['updated_at' => now()]);
             if ($data['role'] === 'customer' && ! DB::table('customers')->where('user_id', $id)->exists()) {
                 DB::table('customers')->insert([
                     'user_id' => $id, 'code' => 'KH-'.str_pad((string) $id, 6, '0', STR_PAD_LEFT),
@@ -169,30 +141,6 @@ class ManagementController extends Controller
         });
 
         return back()->with('success', 'Đã cập nhật phân quyền/tình trạng tài khoản.');
-    }
-
-    private function hasAccountHistory(int $userId): bool
-    {
-        foreach (Schema::getTables() as $tableInfo) {
-            $table = $tableInfo['name'];
-            foreach (Schema::getForeignKeys($table) as $foreignKey) {
-                if ($foreignKey['foreign_table'] !== 'users') {
-                    continue;
-                }
-
-                foreach ($foreignKey['columns'] as $column) {
-                    if (in_array([$table, $column], [['customers', 'user_id'], ['sessions', 'user_id']], true)) {
-                        continue;
-                    }
-
-                    if (DB::table($table)->where($column, $userId)->exists()) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 
     public function resetPassword(Request $request, int $id): RedirectResponse

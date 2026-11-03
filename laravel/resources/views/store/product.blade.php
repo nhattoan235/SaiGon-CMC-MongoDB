@@ -60,17 +60,15 @@
                 <div class="product-purchase-row">
                     <div class="product-quantity-stepper" data-product-stepper>
                         <button type="button" data-step="down" aria-label="Giảm số lượng {{ $product->name }}">−</button>
-                        <input class="form-control" id="quantity" type="number" name="quantity" min="{{ $fractional ? '0.001' : '1' }}" max="1000000" step="{{ $fractional ? '0.001' : '1' }}" data-step-amount="1" value="{{ old('quantity', session('cart', [])[$product->id] ?? 1) }}" required aria-label="Số lượng {{ $product->name }}" aria-describedby="quantityHelp">
+                        <input class="form-control" id="quantity" type="number" name="quantity" min="{{ $fractional ? '0.001' : '1' }}" max="1000000" step="{{ $fractional ? '0.001' : '1' }}" value="{{ old('quantity', session('cart', [])[$product->id] ?? 1) }}" required aria-label="Số lượng {{ $product->name }}">
                         <button type="button" data-step="up" aria-label="Tăng số lượng {{ $product->name }}">+</button>
                     </div>
                 </div>
-                <small id="quantityHelp" class="product-quantity-help">@if($fractional)Nhập tối đa 3 chữ số thập phân; nút +/− thay đổi từng 1 {{ $product->unit }}.@else Số lượng tính theo {{ $product->unit }} nguyên.@endif</small>
                 <div class="product-detail-links">
                     <button type="button" data-bs-toggle="offcanvas" data-bs-target="#productSpecs" aria-controls="productSpecs">Xem mô tả và thông số</button>
                     <a href="{{ route('estimate') }}">Dự toán vật liệu cho công trình</a>
                 </div>
-                <button class="btn-editorial dark product-order-button" type="submit">Thêm vào giỏ</button>
-                <p class="product-purchase-note">Thêm vào giỏ chưa tạo đơn hay thanh toán; bạn sẽ chọn bước tiếp theo tại trang Giỏ hàng.</p>
+                <button class="btn-editorial dark product-order-button" type="submit">Đặt hàng</button>
             </form>
         </div>
     </div>

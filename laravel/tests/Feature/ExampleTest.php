@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use Tests\RefreshDocumentDatabase as RefreshDatabase;
+use Tests\Concerns\ResetsMongoDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    use RefreshDatabase;
+    use ResetsMongoDatabase;
 
     /**
      * A basic test example.
