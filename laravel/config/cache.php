@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Str;
+
 return [
 
     /*
@@ -13,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'mongodb'),
+    'default' => env('CACHE_STORE', 'database'),
 
     /*
     |--------------------------------------------------------------------------
@@ -31,14 +33,6 @@ return [
     */
 
     'stores' => [
-
-        'mongodb' => [
-            'driver' => 'mongodb',
-            'connection' => 'mongodb',
-            'collection' => 'cache',
-            'lock_connection' => 'mongodb',
-            'lock_collection' => 'cache_locks',
-        ],
 
         'array' => [
             'driver' => 'array',
@@ -106,7 +100,6 @@ return [
         'failover' => [
             'driver' => 'failover',
             'stores' => [
-
                 'database',
                 'array',
             ],
@@ -125,7 +118,7 @@ return [
     |
     */
 
-    'prefix' => env('CACHE_PREFIX', 'cmc_mongodb_cache_'),
+    'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
     /*
     |--------------------------------------------------------------------------

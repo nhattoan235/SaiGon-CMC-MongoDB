@@ -9,6 +9,8 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(RolePermissionSeeder::class);
+
         $categories = [
             ['XI-MANG', 'Xi măng'], ['GACH', 'Gạch xây dựng'], ['THEP', 'Sắt thép'],
             ['CAT-DA', 'Cát & đá'], ['VAT-TU-PHU', 'Vật tư phụ'],
@@ -66,6 +68,7 @@ class DatabaseSeeder extends Seeder
                 );
             }
         }
+        $this->call(EstimateNormVersionSeeder::class);
         DB::table('warehouses')->insertOrIgnore(['code' => 'KHO-CHINH', 'name' => 'Kho chính Sài Gòn CMC', 'active' => true, 'updated_at' => now(), 'created_at' => now()]);
     }
 }

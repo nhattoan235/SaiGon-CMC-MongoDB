@@ -6,12 +6,12 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Tests\Concerns\ResetsMongoDatabase;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class AuthPasswordResetTest extends TestCase
 {
-    use ResetsMongoDatabase;
+    use RefreshDatabase;
 
     public function test_customer_can_request_password_reset_with_login_email(): void
     {

@@ -2,25 +2,29 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\EstimateNormWorkflow;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class EstimateController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, EstimateNormWorkflow $workflow): View
     {
+        $typeOptions = $workflow->activeTypeOptions();
+        $buildingTypes = $typeOptions->pluck('code');
         $data = $request->validate([
-            'building_type' => ['nullable', 'in:NHA_CAP_4,NHA_PHO_BTCT,BIET_THU'],
+            'building_type' => ['nullable', 'string', 'max:50', Rule::in($buildingTypes->all())],
             'area' => ['nullable', 'numeric', 'gt:0', 'lte:10000'],
             'floors' => ['nullable', 'integer', 'between:1,50'],
         ]);
         $rows = collect();
         $total = '0.00';
+        $estimateSet = null;
         if (isset($data['building_type'], $data['area'])) {
-            $rows = DB::table('estimation_norms')->join('products', 'products.id', '=', 'estimation_norms.product_id')
-                ->where('estimation_norms.building_type', $data['building_type'])->where('products.active', true)
-                ->select('estimation_norms.*', 'products.name', 'products.unit', 'products.price')->get()
+            $currentSet = $workflow->currentFor($data['building_type']);
+            $estimateSet = $currentSet['meta'];
+            $rows = $currentSet['items']
                 ->map(function ($row) use ($data, &$total) {
                     $quantity = bcmul((string) $row->quantity_per_square_meter, (string) $data['area'], 4);
                     if ($row->per_floor) {
@@ -35,6 +39,9 @@ class EstimateController extends Controller
                 });
         }
 
-        return view('store.estimate', compact('data', 'rows', 'total'));
+        $buildingTypeLabels = $typeOptions->mapWithKeys(fn ($option): array => [$option->code => $option->label]);
+
+        return view('store.estimate', compact('data', 'rows', 'total', 'buildingTypes', 'buildingTypeLabels', 'estimateSet'));
     }
+
 }

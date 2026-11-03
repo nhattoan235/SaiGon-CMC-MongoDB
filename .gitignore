@@ -17,6 +17,8 @@
 **/public/storage/
 **/public/build/
 .worktrees/
+/qa-*.xml
+/qa-browser-*.png
 
 # Isolated local MongoDB runtime
 /.runtime/

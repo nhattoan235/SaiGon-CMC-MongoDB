@@ -1,12 +1,55 @@
 /* Customer order forms, account tools and contract state. */
-form.order-card.row:has([name="building_type"]){display:grid!important;grid-template-columns:minmax(190px,1.4fr) minmax(150px,1fr) minmax(130px,.7fr) minmax(170px,1fr);align-items:end;gap:16px;margin:0 0 14px;padding:clamp(20px,2.4vw,32px)}
-form.order-card.row:has([name="building_type"])>div{width:auto;max-width:none;padding:0;margin:0;min-width:0}
-form.order-card.row:has([name="building_type"]) .form-label{display:block;width:100%;margin:0;font-size:12px;font-weight:700}
-form.order-card.row:has([name="building_type"]) :is(.form-control,.form-select,.cmc-select-button,.btn-editorial){display:flex;align-items:center;width:100%;height:46px;min-height:46px;box-sizing:border-box}
-form.order-card.row:has([name="building_type"]) :is(.form-control,.form-select,.cmc-select){margin-top:8px}
-form.order-card.row:has([name="building_type"]) .cmc-select{display:block;width:100%}
-form.order-card.row:has([name="building_type"]) .cmc-select-button{margin:0}
-form.order-card.row:has([name="building_type"]) .btn-editorial{justify-content:center}
+.site-header .account-trigger{width:auto;min-width:44px;height:44px;gap:7px;padding:0 9px;border-radius:999px}
+.site-header .account-trigger:hover,.site-header .account-trigger[aria-expanded="true"]{border-radius:999px}
+.account-trigger-label{font-size:12px;font-weight:600;white-space:nowrap}
+.account-dropdown-section-label{display:block;padding:12px 24px 5px;color:#72796f;font-size:10px;font-weight:700;letter-spacing:.08em}
+@media(max-width:991px){.account-trigger-label{display:none}}
+.mat-generic{background-image:linear-gradient(135deg,#d6d8d0,#ece9e0 52%,#b7b9ae);background-size:cover}
+.product-quantity-help{display:block;margin-top:9px;color:var(--muted);font-size:12px;line-height:1.5}
+.product-purchase-note{margin:12px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+.cart-stock-warning:not([hidden]){margin:8px 0;color:#80531d;font-size:12px;line-height:1.5}
+html[data-theme=dark] .cart-stock-warning:not([hidden]){color:#ffe3a8}
+.customer-dashboard .section-head{margin:34px 0 16px}
+.customer-dashboard .section-head h2{margin:8px 0 0;font:400 clamp(26px,3vw,36px)/1.15 var(--font-display)}
+.customer-action-card{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px 22px;border:1px solid var(--line);margin-bottom:10px;background:var(--paper)}
+.customer-action-card p{margin:12px 0 0;color:var(--muted);line-height:1.55}
+.customer-action-card .btn-editorial{flex-shrink:0}
+.customer-action-empty{border:1px solid var(--line);padding:22px;color:var(--muted);background:var(--paper)}
+.customer-record-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px}
+.customer-record-card{display:flex;flex-direction:column;gap:9px;min-height:180px;padding:20px;border:1px solid var(--line);transition:border-color .18s,transform .18s}
+.customer-record-card:hover{border-color:var(--deep);transform:translateY(-2px)}
+.customer-record-count{font:400 30px/1 var(--font-display);color:var(--accent)}
+.customer-record-card>strong{font-size:16px}
+.customer-record-card>span:not(.customer-record-count){font-size:12px;color:var(--muted);line-height:1.5}
+.customer-record-card .customer-record-link{margin-top:auto;color:var(--deep)!important;font-weight:700}
+html[data-theme=dark] .customer-action-card,html[data-theme=dark] .customer-action-empty{background:#202720;color:#f2f0e9}
+html[data-theme=dark] .customer-record-card{background:#202720}
+@media(max-width:575px){.customer-action-card{align-items:flex-start;flex-direction:column;padding:17px}.customer-action-card .btn-editorial{width:100%;justify-content:center}}
+@media(max-width:767px){
+    .site-header .topbar{grid-template-columns:minmax(0,1fr) auto;gap:12px}
+    .site-header .brand{justify-self:start;min-width:0;white-space:nowrap}
+    .site-header .header-actions{gap:4px}
+    .site-header .header-actions :is(.icon-link,.theme-toggle){width:44px;height:44px;flex-shrink:0}
+    .site-header .cart-count{right:0;top:0}
+    .site-header .account-dropdown-menu{top:100%!important;right:0!important;left:auto!important;transform:none!important;margin-top:8px!important;animation:none}
+}
+@media(max-width:379px){
+    .site-header .topbar{padding-inline:16px;gap:8px}
+    .site-header .brand{font-size:12px;gap:8px}
+    .site-header .brand small{font-size:5.5px}
+    .site-header .brand-mark{width:28px;height:28px;font-size:21px;flex-shrink:0}
+}
+.estimate-calculator-form{display:grid!important;grid-template-columns:minmax(190px,1.4fr) minmax(150px,1fr) minmax(130px,.7fr) minmax(170px,1fr);align-items:start;gap:16px;margin:0 0 14px;padding:clamp(20px,2.4vw,32px)}
+.estimate-calculator-form .form-label{display:block;width:100%;margin:0;font-size:12px;font-weight:700}
+.estimate-calculator-form>div{width:auto;max-width:none;padding:0;margin:0;min-width:0}
+.estimate-calculator-form :is(.form-control,.form-select,.cmc-select-button,.btn-editorial){display:flex;align-items:center;width:100%;height:46px;min-height:46px;box-sizing:border-box;margin-top:8px}
+.estimate-calculator-form .cmc-select{display:block;width:100%}
+.estimate-calculator-form .cmc-select-button{margin-top:8px}
+.estimate-calculator-form .btn-editorial{justify-content:center}
+.estimate-calculator-actions{align-content:start;align-items:flex-start}
+.estimate-action-spacer{flex:0 0 100%;height:14px}
+@media(max-width:800px){.estimate-calculator-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:580px){.estimate-calculator-form{grid-template-columns:1fr}.estimate-calculator-form .btn-editorial{width:100%}}
 .account-page .account-hero{padding:clamp(24px,3vw,40px);border:1px solid var(--line);align-items:center}
 .account-page .account-hero>div:first-child{min-width:0}
 .account-page .account-identity{min-width:0;max-width:42%;overflow-wrap:anywhere}
@@ -41,5 +84,5 @@ html[data-theme=dark] .customer-contract-card .order-head .status{background:#21
 html[data-theme=dark] .customer-contract-card .order-head .status-approved,html[data-theme=dark] .customer-contract-card .order-head .status-draft{background:#624a25;border-color:#a77d46;color:#ffe8b5}
 html[data-theme=dark] .customer-contract-card .order-head .status-cancelled{background:#602e2b;border-color:#b07168;color:#ffe0d8}
 @media(max-width:1050px){.order-list .order-card form:has(select[name="product_id"]){grid-template-columns:repeat(2,minmax(0,1fr))}.order-list .order-card form:has(select[name="product_id"]) label:nth-of-type(4),.order-list .order-card form:has(select[name="product_id"]) button{grid-column:1/-1}.order-list .order-card form:has(select[name="product_id"]) button{width:100%}}
-@media(max-width:800px){form.order-card.row:has([name="building_type"]){grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:580px){form.order-card.row:has([name="building_type"]){grid-template-columns:1fr}.account-page .account-hero{padding:22px}.account-page .account-identity{max-width:100%}.order-list .order-card form:has(select[name="product_id"]){grid-template-columns:1fr}.order-list .order-card form:has(select[name="product_id"]) label:nth-of-type(4),.order-list .order-card form:has(select[name="product_id"]) button{grid-column:auto}.customer-debt-filter{grid-template-columns:1fr}.customer-debt-filter label:first-child{grid-column:auto}.customer-debt-count{grid-column:1}}
+@media(max-width:580px){.account-page .account-hero{padding:22px}.account-page .account-identity{max-width:100%}.order-list .order-card form:has(select[name="product_id"]){grid-template-columns:1fr}.order-list .order-card form:has(select[name="product_id"]) label:nth-of-type(4),.order-list .order-card form:has(select[name="product_id"]) button{grid-column:auto}.customer-debt-filter{grid-template-columns:1fr}.customer-debt-filter label:first-child{grid-column:auto}.customer-debt-count{grid-column:1}}
+@media(max-width:580px){body:has(.estimate-calculator-form) .chat-widget{position:relative!important;inset:auto!important;width:auto;margin:0 clamp(20px,3.4vw,58px) 16px}}

@@ -5,12 +5,12 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Tests\Concerns\ResetsMongoDatabase;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class StaffSectionTest extends TestCase
 {
-    use ResetsMongoDatabase;
+    use RefreshDatabase;
 
     public function test_header_navigation_matches_account_role(): void
     {
@@ -106,6 +106,96 @@ class StaffSectionTest extends TestCase
         $this->actingAs($delivery)->post('/staff/delivery-runs')->assertForbidden();
     }
 
+    public function test_sales_dashboard_counts_all_actionable_quotes_and_links_to_the_matching_filter(): void
+    {
+        $sales = User::factory()->create(['role' => 'sales', 'status' => 'active']);
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        foreach (range(1, 35) as $number) {
+            DB::table('quotes')->insert([
+                'code' => sprintf('BG-OVERVIEW-%03d', $number), 'customer_id' => $customer->id,
+                'status' => 'requested', 'delivery_address' => 'Công trình thử',
+            ]);
+        }
+
+        $this->actingAs($sales)->get('/staff')->assertOk()
+            ->assertSee('>35<', false)
+            ->assertSee(route('staff.section', ['section' => 'quotes', 'status' => 'actionable']), false);
+    }
+
+    public function test_contract_dashboard_filter_shows_actionable_contracts_only(): void
+    {
+        $sales = User::factory()->create(['role' => 'sales', 'status' => 'active']);
+        foreach ([['HD-ACTIONABLE', 'pending_approval'], ['HD-DRAFT', 'draft'], ['HD-SIGNED', 'signed']] as [$code, $status]) {
+            DB::table('contracts')->insert([
+                'code' => $code, 'created_by' => $sales->id, 'status' => $status, 'total' => '100.00',
+            ]);
+        }
+
+        $this->actingAs($sales)->get('/staff/work/contracts?status=actionable')->assertOk()
+            ->assertSee('HD-ACTIONABLE')->assertSee('HD-DRAFT')->assertDontSee('HD-SIGNED');
+    }
+
+    public function test_accounting_dashboard_filters_unsettled_payables_and_orders_without_invoices(): void
+    {
+        $accounting = User::factory()->create(['role' => 'accounting', 'status' => 'active']);
+        $supplier = DB::table('suppliers')->insertGetId(['code' => 'NCC-DASH-FILTER', 'name' => 'Nhà cung cấp thử']);
+        DB::table('debts')->insert([
+            'code' => 'CN-DASH-OPEN', 'direction' => 'payable', 'supplier_id' => $supplier,
+            'amount' => '100.00', 'paid' => '20.00', 'status' => 'open',
+        ]);
+        DB::table('debts')->insert([
+            'code' => 'CN-DASH-SETTLED', 'direction' => 'payable', 'supplier_id' => $supplier,
+            'amount' => '100.00', 'paid' => '100.00', 'status' => 'settled',
+        ]);
+
+        $this->actingAs($accounting)->get('/staff/work/finance?direction=payable&status=unsettled')->assertOk()
+            ->assertSee('CN-DASH-OPEN')->assertDontSee('CN-DASH-SETTLED')
+            ->assertSee('khoản chưa tất toán')->assertSee('· phải trả')
+            ->assertDontSee("@elseif(request('view') === 'pending-invoices')", false);
+
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        DB::table('orders')->insert([
+            'code' => 'DH-DASH-INVOICE', 'customer_id' => $customer->id, 'status' => 'ready_to_issue',
+            'total' => '100.00', 'paid' => '100.00', 'delivery_address' => 'Kho nhận',
+            'fulfillment_method' => 'pickup', 'requires_contract' => false,
+        ]);
+        DB::table('orders')->insert([
+            'code' => 'DH-DASH-NOT-INVOICE', 'customer_id' => $customer->id, 'status' => 'awaiting_payment',
+            'total' => '100.00', 'paid' => '0.00', 'delivery_address' => 'Kho nhận',
+            'fulfillment_method' => 'pickup', 'requires_contract' => false,
+        ]);
+
+        $this->actingAs($accounting)->get('/staff/work/orders?view=pending-invoices')->assertOk()
+            ->assertSee('DH-DASH-INVOICE')->assertDontSee('DH-DASH-NOT-INVOICE');
+    }
+
+    public function test_finance_list_identifies_counterparty_and_filters_settled_items(): void
+    {
+        $accounting = User::factory()->create(['role' => 'accounting', 'status' => 'active']);
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active', 'name' => 'Khách Hương Giang']);
+        $supplier = DB::table('suppliers')->insertGetId(['code' => 'NCC-FINANCE-NAME', 'name' => 'Vật liệu An Phát']);
+        DB::table('debts')->insert([
+            'code' => 'CN-THU-NAME', 'direction' => 'receivable', 'customer_id' => $customer->id,
+            'amount' => '150.00', 'paid' => '50.00', 'status' => 'open',
+        ]);
+        DB::table('debts')->insert([
+            'code' => 'CN-CHI-NAME', 'direction' => 'payable', 'supplier_id' => $supplier,
+            'amount' => '200.00', 'paid' => '0.00', 'status' => 'open',
+        ]);
+        DB::table('debts')->insert([
+            'code' => 'CN-DA-THU-NAME', 'direction' => 'receivable', 'customer_id' => $customer->id,
+            'amount' => '75.00', 'paid' => '75.00', 'status' => 'settled',
+        ]);
+
+        $this->actingAs($accounting)->get('/staff/work/finance?status=unsettled')->assertOk()
+            ->assertSee('Khách Hương Giang')->assertSee('Vật liệu An Phát')
+            ->assertSee('CN-THU-NAME')->assertSee('CN-CHI-NAME')->assertDontSee('CN-DA-THU-NAME')
+            ->assertSee('Phải thu')->assertSee('Phải trả');
+
+        $this->actingAs($accounting)->get('/staff/work/finance?direction=receivable&status=settled')->assertOk()
+            ->assertSee('CN-DA-THU-NAME')->assertDontSee('CN-THU-NAME')->assertDontSee('CN-CHI-NAME');
+    }
+
     public function test_sales_quote_filters_search_status_and_sort_records(): void
     {
         $sales = User::factory()->create(['role' => 'sales', 'status' => 'active']);
@@ -128,6 +218,83 @@ class StaffSectionTest extends TestCase
         $response->assertOk()->assertSeeInOrder(['BG-TEST-01', 'BG-TEST-02', 'BG-TEST-03']);
     }
 
+    public function test_contract_search_paginates_all_matches_and_keeps_the_search_term(): void
+    {
+        $sales = User::factory()->create(['role' => 'sales', 'status' => 'active']);
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        foreach (range(1, 35) as $number) {
+            $quoteId = DB::table('quotes')->insertGetId([
+                'code' => sprintf('BG-CONTRACT-PAGE-%03d', $number), 'customer_id' => $customer->id,
+                'status' => 'accepted', 'delivery_address' => 'Công trình thử',
+            ]);
+            DB::table('contracts')->insert([
+                'code' => sprintf('HD-PAGE-%03d', $number), 'quote_id' => $quoteId, 'created_by' => $sales->id,
+                'status' => 'signed', 'total' => '100.00', 'deposit_required' => '0.00',
+                'payment_terms' => 'Thanh toán theo thỏa thuận', 'delivery_terms' => 'Nhận tại kho',
+            ]);
+        }
+
+        $url = '/staff/work/contracts?contract=HD-PAGE';
+        $this->actingAs($sales)->get($url)->assertOk()->assertSee('HD-PAGE-035')->assertDontSee('HD-PAGE-001')
+            ->assertSee('page=2', false)->assertSee('contract=HD-PAGE', false);
+        $this->actingAs($sales)->get($url.'&page=2')->assertOk()
+            ->assertSee('HD-PAGE-001')->assertDontSee('HD-PAGE-035');
+    }
+
+    public function test_finance_debt_list_paginates_past_the_old_thirty_row_limit(): void
+    {
+        $accounting = User::factory()->create(['role' => 'accounting', 'status' => 'active']);
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        foreach (range(1, 35) as $number) {
+            DB::table('debts')->insert([
+                'code' => sprintf('CN-FINANCE-%03d', $number), 'direction' => 'receivable',
+                'customer_id' => $customer->id, 'amount' => '100.00', 'paid' => '0.00', 'status' => 'open',
+            ]);
+        }
+
+        $this->actingAs($accounting)->get('/staff/work/finance')->assertOk()
+            ->assertSee('CN-FINANCE-035')->assertDontSee('CN-FINANCE-005')->assertSee('debts_page=2', false);
+        $this->actingAs($accounting)->get('/staff/work/finance?debts_page=2')->assertOk()
+            ->assertSee('CN-FINANCE-005')->assertDontSee('CN-FINANCE-035');
+    }
+
+    public function test_warehouse_order_queue_paginates_past_the_old_thirty_row_limit(): void
+    {
+        $warehouse = User::factory()->create(['role' => 'warehouse', 'status' => 'active']);
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        foreach (range(1, 35) as $number) {
+            DB::table('orders')->insert([
+                'code' => sprintf('DH-QUEUE-%03d', $number), 'customer_id' => $customer->id,
+                'contract_id' => null, 'status' => 'ready_to_issue', 'total' => '100.00', 'paid' => '100.00',
+                'delivery_address' => 'Nhận tại kho', 'fulfillment_method' => 'pickup', 'requires_contract' => false,
+            ]);
+        }
+
+        $this->actingAs($warehouse)->get('/staff/work/orders')->assertOk()
+            ->assertSee('DH-QUEUE-035')->assertDontSee('DH-QUEUE-005')->assertSee('orders_page=2', false);
+        $this->actingAs($warehouse)->get('/staff/work/orders?orders_page=2')->assertOk()
+            ->assertSee('DH-QUEUE-005')->assertDontSee('DH-QUEUE-035');
+    }
+
+    public function test_sales_quote_search_paginates_all_matches_and_keeps_filters_on_later_pages(): void
+    {
+        $sales = User::factory()->create(['role' => 'sales', 'status' => 'active']);
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active', 'name' => 'Khách phân trang']);
+        foreach (range(1, 35) as $number) {
+            DB::table('quotes')->insert([
+                'code' => sprintf('BG-PAGE-%03d', $number), 'customer_id' => $customer->id,
+                'status' => 'requested', 'delivery_address' => 'Công trình thử',
+            ]);
+        }
+
+        $url = '/staff/work/quotes?q=BG-PAGE&status=requested';
+        $this->actingAs($sales)->get($url)->assertOk()->assertSee('35 hồ sơ')
+            ->assertSee('page=2', false)->assertSee('q=BG-PAGE', false)->assertSee('status=requested', false);
+        $this->actingAs($sales)->get($url.'&page=2')->assertOk()
+            ->assertSee('BG-PAGE-001')->assertDontSee('BG-PAGE-035')
+            ->assertSee('value="requested" selected', false);
+    }
+
     public function test_warehouse_inventory_separates_current_stock_from_movement_history(): void
     {
         $warehouse = User::factory()->create(['role' => 'warehouse', 'status' => 'active']);
@@ -142,5 +309,55 @@ class StaffSectionTest extends TestCase
             ->assertSee('Lịch sử nhập, xuất và điều chỉnh')->assertDontSee('Lập phiếu kiểm kê');
         $this->actingAs($warehouse)->get('/staff/work/returns')->assertOk()
             ->assertSee('Danh sách yêu cầu đổi trả')->assertSee('Không có yêu cầu đổi trả');
+    }
+
+    public function test_purchase_details_show_supplier_destination_and_received_quantities(): void
+    {
+        $warehouseStaff = User::factory()->create(['role' => 'warehouse', 'status' => 'active']);
+        $supplier = DB::table('suppliers')->insertGetId(['code' => 'NCC-QOL', 'name' => 'Nhà cung cấp Minh Tâm']);
+        $warehouse = DB::table('warehouses')->insertGetId(['code' => 'KHO-QOL', 'name' => 'Kho Thủ Đức']);
+        $product = DB::table('products')->insertGetId(['code' => 'GACH-QOL', 'name' => 'Gạch đỏ', 'unit' => 'viên', 'price' => 100]);
+        $purchase = DB::table('purchase_orders')->insertGetId([
+            'code' => 'PN-QOL-001', 'supplier_id' => $supplier, 'warehouse_id' => $warehouse,
+            'requested_by' => $warehouseStaff->id, 'status' => 'approved', 'total' => '500.00',
+        ]);
+        DB::table('purchase_items')->insert([
+            'purchase_order_id' => $purchase, 'product_id' => $product,
+            'quantity' => 5, 'received_quantity' => 2, 'unit_price' => '100.00',
+        ]);
+
+        $this->actingAs($warehouseStaff)->get('/staff/work/purchases')->assertOk()
+            ->assertSee('PN-QOL-001')->assertSee('Nhà cung cấp Minh Tâm')->assertSee('Kho Thủ Đức')
+            ->assertSee('Gạch đỏ · viên')->assertSee('Đã nhận')->assertSee('Còn nhận');
+    }
+
+    public function test_purchase_proposal_form_keeps_values_and_field_error_after_validation_failure(): void
+    {
+        $warehouseStaff = User::factory()->create(['role' => 'warehouse', 'status' => 'active']);
+        $supplier = DB::table('suppliers')->insertGetId(['code' => 'NCC-KEEP', 'name' => 'Nhà cung cấp']);
+        $warehouse = DB::table('warehouses')->insertGetId(['code' => 'KHO-KEEP', 'name' => 'Kho nhận']);
+        $product = DB::table('products')->insertGetId(['code' => 'SP-KEEP', 'name' => 'Xi măng', 'unit' => 'bao', 'price' => 10]);
+
+        $this->actingAs($warehouseStaff)->from('/staff/work/purchases')->post('/staff/purchases', [
+            'supplier_id' => $supplier, 'warehouse_id' => $warehouse,
+            'items' => [['product_id' => $product, 'quantity' => '0', 'unit_price' => '12.5']],
+        ])->assertSessionHasErrors(['items.0.quantity'])->assertRedirect('/staff/work/purchases');
+
+        $this->get('/staff/work/purchases')->assertOk()
+            ->assertSee('value="0"', false)->assertSee('value="12.5"', false);
+    }
+
+    public function test_stocktake_form_keeps_count_and_reason_after_validation_failure(): void
+    {
+        $warehouseStaff = User::factory()->create(['role' => 'warehouse', 'status' => 'active']);
+        $warehouse = DB::table('warehouses')->insertGetId(['code' => 'KHO-ST-KEEP', 'name' => 'Kho kiểm kê']);
+        $product = DB::table('products')->insertGetId(['code' => 'SP-ST-KEEP', 'name' => 'Thép', 'unit' => 'kg', 'price' => 10]);
+
+        $this->actingAs($warehouseStaff)->from('/staff/work/inventory?view=stocktakes')->post('/staff/stocktakes', [
+            'warehouse_id' => $warehouse, 'product_id' => $product, 'quantity' => '7', 'reason' => '',
+        ])->assertSessionHasErrors(['reason'])->assertRedirect('/staff/work/inventory?view=stocktakes');
+
+        $this->get('/staff/work/inventory?view=stocktakes')->assertOk()
+            ->assertSee('value="7"', false)->assertSee('Lý do chênh lệch');
     }
 }

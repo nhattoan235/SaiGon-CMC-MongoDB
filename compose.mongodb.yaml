@@ -1,0 +1,79 @@
+services:
+  mongo:
+    image: mongo:8.0
+    command: ["mongod", "--replSet", "cmc-rs", "--bind_ip_all"]
+    volumes:
+      - cmc_mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ping:1}).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [migration]
+  mongo-init:
+    image: mongo:8.0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: ["mongosh", "--host", "mongo:27017", "--quiet", "--eval"]
+    command:
+      - "try { rs.status(); } catch (e) { if (e.code === 94) { rs.initiate({_id:'cmc-rs',members:[{_id:0,host:'mongo:27017'}]}); } else { throw e; } }"
+    networks: [migration]
+  mongo-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile.mongodb
+    working_dir: /app/laravel
+    volumes:
+      - .:/app
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=cmc-rs
+      MONGODB_DATABASE: cmms_mongodb
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    profiles: [tools]
+    networks: [migration, mysql]
+  app-mongodb: &mongo-runtime
+    build:
+      context: .
+      dockerfile: Dockerfile.mongodb
+    working_dir: /app/laravel
+    volumes:
+      - .:/app
+    environment:
+      DB_CONNECTION: mongodb
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=cmc-rs
+      MONGODB_DATABASE: cmms_mongodb
+      APP_URL: http://localhost:8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    command: php artisan serve --host=0.0.0.0 --port=8000 --no-reload
+    networks: [migration, web]
+  queue-worker:
+    <<: *mongo-runtime
+    ports: []
+    command: php artisan queue:work database --queue=default --sleep=3 --tries=1 --timeout=60
+    restart: unless-stopped
+  rag-worker:
+    <<: *mongo-runtime
+    ports: []
+    command: php artisan queue:work rag --queue=rag --sleep=3 --tries=1 --timeout=1800
+    restart: unless-stopped
+  scheduler:
+    <<: *mongo-runtime
+    ports: []
+    command: php artisan schedule:work
+    restart: unless-stopped
+networks:
+  migration:
+    internal: true
+  mysql:
+    external: true
+    name: sai-gon-cmc-laravel-mysql_default
+  web: {}
+volumes:
+  cmc_mongo:

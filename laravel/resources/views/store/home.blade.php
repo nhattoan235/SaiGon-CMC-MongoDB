@@ -19,10 +19,10 @@
         <div class="category-marquee" aria-label="Nhóm vật liệu">
             <div class="category-track">
             @foreach($categories as $category)
-                <a class="category-card" href="{{ route('catalog', ['category' => $category->code]) }}"><span class="material-image {{ $categoryImages[$category->code] }}" role="img" aria-label="Minh họa {{ $category->name }}"></span><strong>{{ $category->name }}</strong><small>{{ $productCounts[$category->id] ?? 0 }} sản phẩm</small></a>
+                <a class="category-card" href="{{ route('catalog', ['category' => $category->code]) }}"><span class="material-image {{ $categoryImages[$category->code] ?? 'mat-generic' }}" role="img" aria-label="Minh họa {{ $category->name }}"></span><strong>{{ $category->name }}</strong><small>{{ $productCounts[$category->id] ?? 0 }} sản phẩm</small></a>
             @endforeach
             @foreach($categories as $category)
-                <a class="category-card" href="{{ route('catalog', ['category' => $category->code]) }}" aria-hidden="true" tabindex="-1"><span class="material-image {{ $categoryImages[$category->code] }}" aria-hidden="true"></span><strong>{{ $category->name }}</strong><small>{{ $productCounts[$category->id] ?? 0 }} sản phẩm</small></a>
+                <a class="category-card" href="{{ route('catalog', ['category' => $category->code]) }}" aria-hidden="true" tabindex="-1"><span class="material-image {{ $categoryImages[$category->code] ?? 'mat-generic' }}" aria-hidden="true"></span><strong>{{ $category->name }}</strong><small>{{ $productCounts[$category->id] ?? 0 }} sản phẩm</small></a>
             @endforeach
             </div>
         </div>

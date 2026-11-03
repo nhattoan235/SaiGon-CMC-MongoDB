@@ -7,12 +7,13 @@ use App\Services\CommerceWorkflow;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Tests\Concerns\ResetsMongoDatabase;
+use Illuminate\Support\Str;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class StorefrontTest extends TestCase
 {
-    use ResetsMongoDatabase;
+    use RefreshDatabase;
 
     public function test_registration_form_uses_email_and_otp_fields_without_phone(): void
     {
@@ -171,11 +172,45 @@ class StorefrontTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'customer']))->get('/staff')->assertForbidden();
     }
 
+    public function test_customer_purchase_dashboard_shows_next_steps_and_existing_record_sections(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+
+        $this->actingAs($customer)->get('/my')->assertOk()
+            ->assertSee('Hồ sơ mua hàng')
+            ->assertSee('Hiện không có việc cần bạn xác nhận.')
+            ->assertSee('Báo giá của tôi')
+            ->assertSee('Hợp đồng')
+            ->assertSee('Đơn hàng và hóa đơn')
+            ->assertSee('Thanh toán chuyển khoản')
+            ->assertSee('Đối chiếu công nợ')
+            ->assertSee('/my/orders', false);
+    }
+
+    public function test_customer_purchase_dashboard_only_shows_actions_for_the_signed_in_customer(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        $otherCustomer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        DB::table('quotes')->insert([
+            'code' => 'BG-DASH-OWN', 'customer_id' => $customer->id,
+            'status' => 'sent', 'delivery_address' => 'Công trình của tôi',
+        ]);
+        DB::table('quotes')->insert([
+            'code' => 'BG-DASH-OTHER', 'customer_id' => $otherCustomer->id,
+            'status' => 'sent', 'delivery_address' => 'Công trình khách khác',
+        ]);
+
+        $this->actingAs($customer)->get('/my')->assertOk()
+            ->assertSee('BG-DASH-OWN')
+            ->assertDontSee('BG-DASH-OTHER')
+            ->assertSee('Chờ bạn xem báo giá');
+    }
+
     public function test_product_detail_quantity_replaces_old_cart_quantity(): void
     {
         $product = DB::table('products')->insertGetId(['code' => 'G-SET', 'name' => 'Gạch tuynel', 'unit' => 'viên', 'price' => 1250]);
         $this->withSession(['cart' => [$product => 4]])->get('/products/'.$product)
-            ->assertOk()->assertSee('value="4"', false)->assertSee('data-product-stepper')->assertSee('Đặt hàng');
+            ->assertOk()->assertSee('value="4"', false)->assertSee('data-product-stepper')->assertSee('Thêm vào giỏ');
         $this->post('/cart/add', ['product_id' => $product, 'quantity' => 2, 'replace' => 1])
             ->assertRedirect()->assertSessionHas('cart_added.quantity', 2);
         $this->post('/cart/add', ['product_id' => $product, 'quantity' => 2, 'replace' => 1, 'next' => 'cart'])
@@ -205,6 +240,38 @@ class StorefrontTest extends TestCase
         $this->get('/cart')->assertOk()->assertSee('Giỏ hàng đang trống');
     }
 
+    public function test_fractional_bulk_materials_keep_precision_in_cart_controls(): void
+    {
+        $sand = DB::table('products')->insertGetId([
+            'code' => 'CART-SAND-FRACTION', 'name' => 'Cát theo khối', 'unit' => 'm³', 'price' => 100,
+        ]);
+
+        $this->withSession(['cart' => [$sand => 0.5]])->get('/cart')->assertOk()
+            ->assertSee('min="0.001" max="1000000" step="0.001"', false);
+
+        $this->postJson('/cart/update', ['product_id' => $sand, 'quantity' => 0.5, 'action' => 'decrease'])
+            ->assertOk()->assertJson(['quantity' => '0.001', 'canDecrease' => false]);
+
+        $this->assertSame('0.001', (string) session('cart')[$sand]);
+    }
+
+    public function test_customer_cart_explains_checkout_paths_and_stock_shortage_by_item(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active', 'address' => 'Công trình thử']);
+        $warehouse = DB::table('warehouses')->insertGetId(['code' => 'CART-QA', 'name' => 'Kho kiểm tra', 'active' => true]);
+        $product = DB::table('products')->insertGetId([
+            'code' => 'CART-QA-SAND', 'name' => 'Cát kiểm tra', 'unit' => 'm³', 'price' => 100,
+            'direct_purchase_allowed' => true, 'active' => true,
+        ]);
+        DB::table('inventory')->insert(['warehouse_id' => $warehouse, 'product_id' => $product, 'quantity' => 0.5]);
+
+        $this->actingAs($customer)->withSession(['cart' => [$product => 1]])->get('/cart')->assertOk()
+            ->assertSee('Đặt hàng nhận tại kho')
+            ->assertSee('Yêu cầu báo giá công trình')
+            ->assertSee('id="cartStockWarning'.$product.'"', false)
+            ->assertDontSee('14 ngày');
+    }
+
     public function test_cart_quantity_can_update_without_reloading_page(): void
     {
         $product = DB::table('products')->insertGetId(['code' => 'G-ASYNC', 'name' => 'Gạch', 'unit' => 'viên', 'price' => 1250]);
@@ -217,11 +284,166 @@ class StorefrontTest extends TestCase
         $this->assertSame('3', (string) session('cart')[$product]);
     }
 
+    public function test_cart_remove_can_update_without_reloading_and_returns_new_total(): void
+    {
+        $product = DB::table('products')->insertGetId(['code' => 'G-REMOVE-ASYNC', 'name' => 'Gạch', 'unit' => 'viên', 'price' => 1250]);
+        $other = DB::table('products')->insertGetId(['code' => 'X-REMAIN-ASYNC', 'name' => 'Xi măng', 'unit' => 'bao', 'price' => 92000]);
+
+        $this->withSession(['cart' => [$product => 2, $other => 1]])
+            ->postJson('/cart/update', ['product_id' => $product, 'quantity' => 0, 'action' => 'remove'])
+            ->assertOk()->assertJson(['removed' => true, 'quantity' => null, 'total' => '92.000 ₫']);
+
+        $this->assertArrayNotHasKey($product, session('cart'));
+        $this->assertSame('1', (string) session('cart')[$other]);
+    }
+
+    public function test_async_cart_update_rotates_checkout_key_for_the_changed_cart(): void
+    {
+        $product = DB::table('products')->insertGetId(['code' => 'G-ROTATE-KEY', 'name' => 'Gạch', 'unit' => 'viên', 'price' => 1250]);
+        $oldKey = (string) Str::uuid();
+
+        $response = $this->withSession(['cart' => [$product => 2], 'pickup_order_key' => $oldKey])
+            ->postJson('/cart/update', ['product_id' => $product, 'quantity' => 4]);
+
+        $response->assertOk()->assertJsonStructure(['idempotencyKey']);
+        $this->assertNotSame($oldKey, $response->json('idempotencyKey'));
+        $this->assertSame($response->json('idempotencyKey'), session('pickup_order_key'));
+    }
+
+    public function test_cart_stepper_uses_quantity_entered_before_the_stepper_action(): void
+    {
+        $product = DB::table('products')->insertGetId(['code' => 'G-EDIT-STEP', 'name' => 'Gạch', 'unit' => 'viên', 'price' => 1250]);
+
+        $this->withSession(['cart' => [$product => 2]])
+            ->postJson('/cart/update', ['product_id' => $product, 'quantity' => 5, 'action' => 'increase'])
+            ->assertOk()->assertJson(['quantity' => '6']);
+
+        $this->postJson('/cart/update', ['product_id' => $product, 'quantity' => 5, 'action' => 'decrease'])
+            ->assertOk()->assertJson(['quantity' => '4']);
+
+        $this->assertSame('4', (string) session('cart')[$product]);
+    }
+
+    public function test_quote_request_uses_submitted_quantities_and_only_clears_the_matching_cart_revision(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        $product = DB::table('products')->insertGetId(['code' => 'Q-SUBMITTED', 'name' => 'Gạch báo giá', 'unit' => 'viên', 'price' => 100]);
+        $cartKey = (string) Str::uuid();
+
+        $this->actingAs($customer)->withSession(['cart' => [$product => 1], 'pickup_order_key' => $cartKey])
+            ->post('/quotes', [
+                'delivery_address' => 'Công trình A', 'cart_key' => $cartKey, 'quantities' => [$product => 4],
+            ])->assertRedirect('/my/quotes');
+
+        $quoteId = DB::table('quotes')->where('customer_id', $customer->id)->value('id');
+        $this->assertDatabaseHas('quote_items', ['quote_id' => $quoteId, 'product_id' => $product, 'quantity' => 4]);
+        $this->assertDatabaseHas('quotes', ['id' => $quoteId, 'total' => 400]);
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertArrayNotHasKey('cart', session()->all());
+
+        $oldKey = (string) Str::uuid();
+        $currentKey = (string) Str::uuid();
+        $this->withSession(['cart' => [$product => 3], 'pickup_order_key' => $currentKey])
+            ->post('/quotes', [
+                'delivery_address' => 'Công trình cũ', 'cart_key' => $oldKey, 'quantities' => [$product => 1],
+            ])->assertRedirect('/my/quotes');
+
+        $this->assertSame('3', (string) session('cart')[$product]);
+        $this->assertSame($currentKey, session('pickup_order_key'));
+        $this->post('/quotes', [
+            'delivery_address' => 'Công trình legacy', 'quantities' => [$product => 2],
+        ])->assertRedirect('/my/quotes');
+        $this->assertSame('3', (string) session('cart')[$product]);
+        $this->assertSame($currentKey, session('pickup_order_key'));
+    }
+
+    public function test_pickup_checkout_uses_submitted_quantities_and_reuses_the_same_order_for_a_duplicate_post(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        $warehouse = DB::table('warehouses')->insertGetId(['code' => 'K-CHECKOUT', 'name' => 'Kho nhận']);
+        $product = DB::table('products')->insertGetId([
+            'code' => 'G-CHECKOUT', 'name' => 'Gạch', 'unit' => 'viên', 'price' => 100,
+            'direct_purchase_allowed' => true,
+        ]);
+        DB::table('inventory')->insert(['warehouse_id' => $warehouse, 'product_id' => $product, 'quantity' => 10]);
+        $key = (string) Str::uuid();
+        $payload = ['warehouse_id' => $warehouse, 'idempotency_key' => $key, 'quantities' => [$product => 4]];
+
+        $this->actingAs($customer)->withSession(['cart' => [$product => 1], 'pickup_order_key' => $key])->get('/cart')->assertOk()
+            ->assertSee('name="idempotency_key"', false)->assertSee('name="quantities['.$product.']"', false);
+        $this->post('/pickup-orders', $payload)->assertRedirect('/my/orders');
+        $this->assertDatabaseHas('orders', ['customer_id' => $customer->id, 'total' => '400.00', 'idempotency_key' => $key]);
+        $orderId = DB::table('orders')->where('customer_id', $customer->id)->where('idempotency_key', $key)->value('id');
+        $this->post('/pickup-orders', $payload)->assertRedirect('/my/orders');
+
+        $this->assertSame(1, DB::table('orders')->where('customer_id', $customer->id)->count());
+        $this->assertDatabaseHas('order_items', ['order_id' => $orderId, 'product_id' => $product, 'quantity' => '4.000']);
+    }
+
+    public function test_replaying_an_old_checkout_does_not_clear_a_new_cart_in_the_same_session(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        $warehouse = DB::table('warehouses')->insertGetId(['code' => 'K-OLD-POST', 'name' => 'Kho nhận']);
+        $product = DB::table('products')->insertGetId([
+            'code' => 'G-OLD-POST', 'name' => 'Gạch', 'unit' => 'viên', 'price' => 100,
+            'direct_purchase_allowed' => true,
+        ]);
+        DB::table('inventory')->insert(['warehouse_id' => $warehouse, 'product_id' => $product, 'quantity' => 10]);
+        $oldKey = (string) Str::uuid();
+        $oldOrder = ['warehouse_id' => $warehouse, 'idempotency_key' => $oldKey, 'quantities' => [$product => 1]];
+
+        $this->actingAs($customer)->withSession(['cart' => [$product => 1], 'pickup_order_key' => $oldKey])
+            ->post('/pickup-orders', $oldOrder)->assertRedirect('/my/orders');
+        $newKey = $this->withSession(['cart' => [$product => 3]])
+            ->postJson('/cart/update', ['product_id' => $product, 'quantity' => 3])
+            ->assertOk()->json('idempotencyKey');
+        $this->assertNotSame($oldKey, $newKey);
+        $this->post('/pickup-orders', ['warehouse_id' => $warehouse])->assertSessionHasErrors('workflow');
+        $this->post('/pickup-orders', $oldOrder)->assertRedirect('/my/orders');
+
+        $this->assertSame('3', (string) session('cart')[$product]);
+        $this->assertSame($newKey, session('pickup_order_key'));
+        $this->assertDatabaseCount('orders', 1);
+    }
+
     public function test_catalog_and_product_page_render_from_database(): void
     {
         $product = DB::table('products')->insertGetId(['code' => 'XM1', 'name' => 'Xi măng thử', 'unit' => 'bao', 'price' => 100]);
         $this->get('/products')->assertOk()->assertSee('Xi măng thử')->assertSee('Hết hàng')->assertDontSee('Tồn kho: 0 bao');
         $this->get('/products/'.$product)->assertOk()->assertSee('Xi măng thử')->assertSee('Tồn kho tham khảo');
+    }
+
+    public function test_homepage_lists_active_categories_from_the_database(): void
+    {
+        DB::table('categories')->insert([
+            ['code' => 'VAT-TU-PHU', 'name' => 'Vật tư phụ', 'active' => true],
+            ['code' => 'NHOM-MOI', 'name' => 'Nhóm vật liệu mới', 'active' => true],
+            ['code' => 'NGUNG-KINH-DOANH', 'name' => 'Nhóm đã ngừng', 'active' => false],
+        ]);
+
+        $this->get('/')->assertOk()
+            ->assertSee('Vật tư phụ')
+            ->assertSee('Nhóm vật liệu mới')
+            ->assertDontSee('Nhóm đã ngừng')
+            ->assertSee('mat-generic', false);
+    }
+
+    public function test_catalog_search_handles_empty_and_no_results_queries_without_writing_business_data(): void
+    {
+        foreach (range(1, 17) as $number) {
+            DB::table('products')->insert([
+                'code' => sprintf('CATALOG-PAGE-%03d', $number), 'name' => 'Gạch trang '.$number,
+                'unit' => 'viên', 'price' => 100,
+            ]);
+        }
+
+        $this->get('/products?q=NO-SUCH-MATERIAL')->assertOk()->assertSee('Chưa tìm thấy sản phẩm');
+        $this->get('/products?q=')->assertOk()->assertSee('Hiển thị 1–15 / 17 sản phẩm');
+        $this->get('/products?q=CATALOG-PAGE&page=2')->assertOk()
+            ->assertSee('>Gạch trang 17</h3>', false)->assertDontSee('>Gạch trang 1</h3>', false)
+            ->assertSee('q=CATALOG-PAGE', false);
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseCount('quotes', 0);
     }
 
     public function test_storefront_stock_excludes_pickup_reservations_and_stays_warehouse_specific(): void
@@ -251,14 +473,16 @@ class StorefrontTest extends TestCase
         $brick = DB::table('products')->insertGetId(['code' => 'G2', 'name' => 'Gạch thử', 'unit' => 'viên', 'price' => 100]);
         $sand = DB::table('products')->insertGetId(['code' => 'C1', 'name' => 'Cát thử', 'unit' => 'm³', 'price' => 100]);
 
-        $this->get('/products/'.$brick)->assertOk()->assertSee('step="1"', false);
-        $this->get('/products/'.$sand)->assertOk()->assertSee('step="0.001"', false);
+        $this->get('/products/'.$brick)->assertOk()->assertSee('min="1" max="1000000" step="1"', false);
+        $this->get('/products/'.$sand)->assertOk()->assertSee('min="0.001" max="1000000" step="0.001"', false);
         $this->post('/cart/add', ['product_id' => $brick, 'quantity' => 1.002])->assertSessionHasErrors('quantity');
         $this->post('/cart/add', ['product_id' => $brick, 'quantity' => 2])->assertRedirect();
         $this->post('/cart/update', ['product_id' => $brick, 'quantity' => 2.5])->assertSessionHasErrors('quantity');
         $this->post('/cart/add', ['product_id' => $sand, 'quantity' => 0.5])->assertRedirect();
-        $this->get('/cart')->assertOk()->assertSee('step="0.001"', false);
+        $this->get('/cart')->assertOk()->assertSee('step="1"', false);
         $this->assertEquals(2, session('cart')[$brick]);
         $this->assertEquals(0.5, session('cart')[$sand]);
+        $this->post('/cart/update', ['product_id' => $sand, 'quantity' => 0.5, 'action' => 'increase'])->assertRedirect('/cart');
+        $this->assertEquals(1.5, session('cart')[$sand]);
     }
 }

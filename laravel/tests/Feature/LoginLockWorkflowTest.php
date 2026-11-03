@@ -4,12 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Tests\Concerns\ResetsMongoDatabase;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class LoginLockWorkflowTest extends TestCase
 {
-    use ResetsMongoDatabase;
+    use RefreshDatabase;
 
     public function test_account_locks_after_six_wrong_passwords_and_admin_can_unlock_it(): void
     {

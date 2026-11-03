@@ -7,8 +7,8 @@
                 <p>Chọn vật liệu phù hợp, dự toán chủ động và nhận báo giá rõ ràng cho từng công trình.</p>
             </div>
             <div class="footer-banner-actions">
-                <a class="footer-banner-primary" href="{{ route('estimate') }}">Dự toán vật liệu <span aria-hidden="true">↗</span></a>
-                <a class="footer-banner-secondary" href="{{ route('cart') }}">Yêu cầu báo giá <span aria-hidden="true">→</span></a>
+                <a class="footer-banner-primary" href="{{ route('estimate') }}">Dự toán vật liệu</a>
+                <a class="footer-banner-secondary" href="{{ route('cart') }}">Yêu cầu báo giá</a>
             </div>
         </section>
         <div class="footer-main">
@@ -36,6 +36,7 @@
                         <a href="{{ route('my.quotes') }}">Báo giá của tôi</a>
                         <a href="{{ route('my.contracts') }}">Hợp đồng</a>
                         <a href="{{ route('my.orders') }}">Đơn hàng</a>
+                        <a href="{{ route('my.transfers.index') }}">Thanh toán chuyển khoản</a>
                         <a href="{{ route('profile') }}">Hồ sơ cá nhân</a>
                     @else
                         <a href="{{ route('staff.dashboard') }}">Bảng làm việc</a>
@@ -50,7 +51,7 @@
             <div class="footer-column footer-help">
                 <h3>Cần hỗ trợ?</h3>
                 <p>Chưa biết chọn loại vật liệu nào? Trợ lý CMC có thể gợi ý theo danh mục sản phẩm đang có.</p>
-                <a class="footer-help-link" href="{{ route('assistant') }}">Tư vấn vật liệu <span aria-hidden="true">↗</span></a>
+                <a class="footer-help-link" href="{{ route('assistant') }}">Tư vấn vật liệu</a>
                 <small>Giá và tình trạng cung ứng cần được nhân viên xác nhận.</small>
             </div>
         </div>

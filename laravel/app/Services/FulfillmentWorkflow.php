@@ -70,7 +70,9 @@ class FulfillmentWorkflow
             if (! $document || $document->type !== 'stocktake' || $document->status !== 'pending') {
                 $this->fail('Biên bản kiểm kê không còn chờ duyệt.');
             }
+            app(ApprovalWorkflow::class)->assertIndependent((int) $document->created_by, $managerId, 'biên bản kiểm kê');
             $item = DB::table('stock_document_items')->where('stock_document_id', $documentId)->first();
+            $content = ['document' => (array) $document, 'items' => $item ? [(array) $item] : []];
             if ($approve) {
                 $book = DB::table('inventory')->where('warehouse_id', $document->warehouse_id)
                     ->where('product_id', $item->product_id)->lockForUpdate()->value('quantity') ?? '0';
@@ -83,55 +85,68 @@ class FulfillmentWorkflow
             DB::table('stock_documents')->where('id', $documentId)->update([
                 'status' => $approve ? 'approved' : 'rejected', 'approved_by' => $managerId, 'updated_at' => now(),
             ]);
+            app(ApprovalWorkflow::class)->recordDecision('stocktake', $documentId, $approve ? 'approved' : 'rejected',
+                'pending', $approve ? 'approved' : 'rejected', $managerId, null, $content);
         });
     }
 
     public function createPurchaseOrder(int $supplierId, int $warehouseId, int $staffId, array $items): int
     {
-        return DB::transaction(fn () => $this->createPurchaseOrderInTransaction($supplierId, $warehouseId, $staffId, $items));
-    }
-
-    private function createPurchaseOrderInTransaction(int $supplierId, int $warehouseId, int $staffId, array $items): int
-    {
-        if ($items === [] || ! DB::table('suppliers')->where('id', $supplierId)->where('active', true)->exists()
-            || ! DB::table('warehouses')->where('id', $warehouseId)->where('active', true)->exists()) {
-            $this->fail('Nhà cung cấp, kho hoặc danh sách hàng không hợp lệ.');
-        }
-        $id = DB::table('purchase_orders')->insertGetId([
-            'code' => 'TEMP-'.uniqid(), 'supplier_id' => $supplierId, 'warehouse_id' => $warehouseId,
-            'requested_by' => $staffId, 'status' => 'pending',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $total = '0.00';
-        foreach ($items as $item) {
-            $productId = $item['product_id'] ?? null;
-            $quantity = (string) ($item['quantity'] ?? 0);
-            $price = (string) ($item['unit_price'] ?? -1);
-            if (! DB::table('products')->where('id', $productId)->exists()
-                || ! is_numeric($quantity) || bccomp($quantity, '0', 3) <= 0
-                || ! is_numeric($price) || bccomp($price, '0', 2) < 0) {
-                $this->fail('Dòng nhập hàng không hợp lệ.');
+        return DB::transaction(function () use ($supplierId, $warehouseId, $staffId, $items) {
+            if ($items === [] || ! DB::table('suppliers')->where('id', $supplierId)->where('active', true)->exists()
+                || ! DB::table('warehouses')->where('id', $warehouseId)->where('active', true)->exists()) {
+                $this->fail('Nhà cung cấp, kho hoặc danh sách hàng không hợp lệ.');
             }
-            $total = bcadd($total, bcmul($quantity, $price, 2), 2);
-            DB::table('purchase_items')->insert([
-                'purchase_order_id' => $id, 'product_id' => $productId,
-                'quantity' => $quantity, 'unit_price' => $price,
+            $id = DB::table('purchase_orders')->insertGetId([
+                'code' => 'TEMP-'.uniqid(), 'supplier_id' => $supplierId, 'warehouse_id' => $warehouseId,
+                'requested_by' => $staffId, 'status' => 'pending',
                 'created_at' => now(), 'updated_at' => now(),
             ]);
-        }
-        DB::table('purchase_orders')->where('id', $id)->update(['code' => $this->code('MH', $id), 'total' => $total]);
+            $total = '0.00';
+            foreach ($items as $item) {
+                $productId = $item['product_id'] ?? null;
+                $quantity = (string) ($item['quantity'] ?? 0);
+                $price = (string) ($item['unit_price'] ?? -1);
+                if (! DB::table('products')->where('id', $productId)->exists()
+                    || ! is_numeric($quantity) || bccomp($quantity, '0', 3) <= 0
+                    || ! is_numeric($price) || bccomp($price, '0', 2) < 0) {
+                    $this->fail('Dòng nhập hàng không hợp lệ.');
+                }
+                $total = bcadd($total, bcmul($quantity, $price, 2), 2);
+                DB::table('purchase_items')->insert([
+                    'purchase_order_id' => $id, 'product_id' => $productId,
+                    'quantity' => $quantity, 'unit_price' => $price,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+            DB::table('purchase_orders')->where('id', $id)->update(['code' => $this->code('MH', $id), 'total' => $total]);
 
-        return $id;
+            return $id;
+        });
     }
 
     public function approvePurchaseOrder(int $purchaseId, int $managerId): void
     {
-        $changed = DB::table('purchase_orders')->where('id', $purchaseId)->where('status', 'pending')->update([
-            'status' => 'approved', 'approved_by' => $managerId, 'updated_at' => now(),
-        ]);
-        if (! $changed) {
-            $this->fail('Đề xuất nhập hàng không còn chờ duyệt.');
-        }
+        DB::transaction(function () use ($purchaseId, $managerId) {
+            $purchase = DB::table('purchase_orders')->where('id', $purchaseId)->lockForUpdate()->first();
+            if (! $purchase || $purchase->status !== 'pending') {
+                $this->fail('Đề xuất nhập hàng không còn chờ duyệt.');
+            }
+            app(ApprovalWorkflow::class)->assertIndependent((int) $purchase->requested_by, $managerId, 'đề xuất nhập hàng');
+            $content = [
+                'purchase_order' => (array) $purchase,
+                'items' => DB::table('purchase_items')->where('purchase_order_id', $purchaseId)->orderBy('id')->get()
+                    ->map(fn ($item) => (array) $item)->all(),
+            ];
+            $changed = DB::table('purchase_orders')->where('id', $purchaseId)->where('status', 'pending')->update([
+                'status' => 'approved', 'approved_by' => $managerId, 'updated_at' => now(),
+            ]);
+            if (! $changed) {
+                $this->fail('Đề xuất nhập hàng không còn chờ duyệt.');
+            }
+            app(ApprovalWorkflow::class)->recordDecision('purchase_order', $purchaseId, 'approved',
+                'pending', 'approved', $managerId, null, $content);
+        });
     }
 
     public function receivePurchaseOrder(int $purchaseId, int $staffId, array $received): int
@@ -252,9 +267,8 @@ class FulfillmentWorkflow
                 $this->fail('Kế toán chưa phát lệnh xuất hàng.');
             }
             DB::table('warehouses')->where('id', $warehouseId)->lockForUpdate()->first();
-            $contract = DB::table('contracts')->where('id', $order->contract_id)->first();
             if (($order->fulfillment_method === 'pickup' && $order->pickup_warehouse_id !== $warehouseId)
-                || bccomp((string) $order->paid, (string) ($contract?->deposit_required ?? $order->total), 2) < 0) {
+                || ! app(PaymentScheduleWorkflow::class)->isReleaseEligible($orderId)) {
                 $this->fail('Kho nhận hàng hoặc số tiền đã thanh toán không hợp lệ.');
             }
             if (DB::table('stock_documents')->where('order_id', $orderId)->where('type', 'issue')->where('status', 'approved')->exists()) {
@@ -315,14 +329,17 @@ class FulfillmentWorkflow
         if (trim($recipient) === '') {
             $this->fail('Cần ghi tên người nhận hàng tại kho.');
         }
-        $changed = DB::table('orders')->where('id', $orderId)->where('fulfillment_method', 'pickup')
-            ->where('status', 'ready_to_ship')->update([
-                'status' => 'delivered', 'pickup_recipient' => trim($recipient),
-                'picked_up_by' => $staffId, 'picked_up_at' => now(), 'updated_at' => now(),
-            ]);
-        if (! $changed) {
-            $this->fail('Đơn hàng chưa xuất kho hoặc đã bàn giao.');
-        }
+        DB::transaction(function () use ($orderId, $staffId, $recipient) {
+            $changed = DB::table('orders')->where('id', $orderId)->where('fulfillment_method', 'pickup')
+                ->where('status', 'ready_to_ship')->update([
+                    'status' => 'delivered', 'pickup_recipient' => trim($recipient),
+                    'picked_up_by' => $staffId, 'picked_up_at' => now(), 'updated_at' => now(),
+                ]);
+            if (! $changed) {
+                $this->fail('Đơn hàng chưa xuất kho hoặc đã bàn giao.');
+            }
+            app(PaymentScheduleWorkflow::class)->activateHandoverTerms($orderId);
+        });
     }
 
     public function pickupShipment(int $shipmentId, int $staffId, string $receiver): void
@@ -508,6 +525,9 @@ class FulfillmentWorkflow
                 DB::table('orders')->where('id', $shipment->order_id)->update([
                     'status' => $accepted ? 'delivered' : 'delivery_incident', 'updated_at' => now(),
                 ]);
+                if ($accepted) {
+                    app(PaymentScheduleWorkflow::class)->activateHandoverTerms((int) $shipment->order_id);
+                }
             }
         });
     }
@@ -515,7 +535,7 @@ class FulfillmentWorkflow
     public function requestReturn(int $orderId, int $customerId, int $productId, string $quantity, string $reason, string $type = 'return'): int
     {
         return DB::transaction(function () use ($orderId, $customerId, $productId, $quantity, $reason, $type) {
-            $order = DB::table('orders')->where('id', $orderId)->lockForUpdate()->first();
+            $order = DB::table('orders')->where('id', $orderId)->first();
             $item = DB::table('order_items')->where('order_id', $orderId)->where('product_id', $productId)->first();
             if (! $order || $order->customer_id !== $customerId || ! in_array($order->status, ['delivered', 'delivery_incident'], true) || ! $item
                 || ! is_numeric($quantity) || bccomp($quantity, '0', 3) <= 0 || ! in_array($type, ['return', 'exchange'], true)) {
@@ -556,9 +576,16 @@ class FulfillmentWorkflow
         });
     }
 
-    public function inspectReturn(int $returnId, int $warehouseId, int $staffId, bool $reusable, string $note): void
+    public function inspectReturn(
+        int $returnId,
+        int $warehouseId,
+        int $staffId,
+        bool $reusable,
+        string $note,
+        ?string $estimatedAvailableOn = null
+    ): void
     {
-        DB::transaction(function () use ($returnId, $warehouseId, $staffId, $reusable, $note) {
+        DB::transaction(function () use ($returnId, $warehouseId, $staffId, $reusable, $note, $estimatedAvailableOn) {
             $return = DB::table('returns')->where('id', $returnId)->lockForUpdate()->first();
             if (! $return || $return->status !== 'collected') {
                 $this->fail('Giao nhận chưa thu hồi hàng trả hoặc phiếu đã được kiểm tra.');
@@ -596,14 +623,14 @@ class FulfillmentWorkflow
                         ->where('purchase_items.product_id', $return->product_id)->where('suppliers.active', true)
                         ->where('purchase_items.received_quantity', '>', 0)->orderByDesc('purchase_orders.id')
                         ->select('purchase_orders.supplier_id', 'purchase_items.unit_price')->first();
-                    $purchaseId = $supplier ? $this->createPurchaseOrderInTransaction($supplier->supplier_id, $warehouseId, $staffId, [[
+                    $purchaseId = $supplier ? $this->createPurchaseOrder($supplier->supplier_id, $warehouseId, $staffId, [[
                         'product_id' => $return->product_id,
                         'quantity' => bcsub((string) $return->quantity, $available, 3),
                         'unit_price' => $supplier->unit_price,
                     ]]) : null;
                     DB::table('returns')->where('id', $returnId)->update([
                         'restock_purchase_order_id' => $purchaseId,
-                        'estimated_available_on' => now()->addDays(14)->toDateString(),
+                        'estimated_available_on' => $estimatedAvailableOn,
                     ]);
                     if ($purchaseId) {
                         DB::table('purchase_orders')->where('id', $purchaseId)->update([
@@ -648,9 +675,15 @@ class FulfillmentWorkflow
         });
     }
 
-    public function requestExchangeRestock(int $returnId, int $supplierId, int $staffId, string $unitPrice): int
+    public function requestExchangeRestock(
+        int $returnId,
+        int $supplierId,
+        int $staffId,
+        string $unitPrice,
+        ?string $estimatedAvailableOn = null
+    ): int
     {
-        return DB::transaction(function () use ($returnId, $supplierId, $staffId, $unitPrice) {
+        return DB::transaction(function () use ($returnId, $supplierId, $staffId, $unitPrice, $estimatedAvailableOn) {
             $return = DB::table('returns')->where('id', $returnId)->lockForUpdate()->first();
             if (! $return || $return->type !== 'exchange' || $return->status !== 'inspected'
                 || ! $return->replacement_warehouse_id || $return->restock_purchase_order_id) {
@@ -661,22 +694,36 @@ class FulfillmentWorkflow
             if (bccomp($available, (string) $return->quantity, 3) >= 0) {
                 $this->fail('Kho đã đủ hàng đổi; hãy xuất hàng thay thế.');
             }
-            $purchaseId = $this->createPurchaseOrderInTransaction($supplierId, $return->replacement_warehouse_id, $staffId, [[
+            $purchaseId = $this->createPurchaseOrder($supplierId, $return->replacement_warehouse_id, $staffId, [[
                 'product_id' => $return->product_id,
                 'quantity' => bcsub((string) $return->quantity, $available, 3),
                 'unit_price' => $unitPrice,
             ]]);
             DB::table('purchase_orders')->where('id', $purchaseId)->update(['note' => 'Bổ sung hàng đổi theo phiếu '.$return->code]);
-            DB::table('returns')->where('id', $returnId)->update(['restock_purchase_order_id' => $purchaseId,
-                'estimated_available_on' => now()->addDays(14)->toDateString(), 'updated_at' => now()]);
+            $changes = ['restock_purchase_order_id' => $purchaseId, 'updated_at' => now()];
+            if ($estimatedAvailableOn !== null) {
+                $changes['estimated_available_on'] = $estimatedAvailableOn;
+            }
+            DB::table('returns')->where('id', $returnId)->update($changes);
 
             return $purchaseId;
         });
     }
 
-    public function sendDamagedReturnToSupplier(int $returnId, int $supplierId, int $staffId, string $note): int
+    public function sendDamagedReturnToSupplier(
+        int $returnId,
+        int $supplierId,
+        int $staffId,
+        string $note,
+        bool $responsibilityConfirmed,
+        string $responsibilityEvidence
+    ): int
     {
-        return DB::transaction(function () use ($returnId, $supplierId, $staffId, $note) {
+        if (! $responsibilityConfirmed || trim($responsibilityEvidence) === '') {
+            $this->fail('Cần xác nhận trách nhiệm nhà cung cấp và ghi căn cứ đối chiếu trước khi trả hàng.');
+        }
+
+        return DB::transaction(function () use ($returnId, $supplierId, $staffId, $note, $responsibilityEvidence) {
             $return = DB::table('returns')->where('id', $returnId)->lockForUpdate()->first();
             if (! $return || $return->condition !== 'damaged' || ! in_array($return->status, ['inspected', 'completed'], true)
                 || trim($note) === '' || ! DB::table('suppliers')->where('id', $supplierId)->where('active', true)->exists()
@@ -689,6 +736,8 @@ class FulfillmentWorkflow
             $id = DB::table('supplier_returns')->insertGetId([
                 'code' => 'TEMP-'.uniqid(), 'return_id' => $returnId,
                 'supplier_id' => $supplierId, 'recorded_by' => $staffId,
+                'responsibility_confirmed_by' => $staffId, 'responsibility_confirmed_at' => now(),
+                'responsibility_evidence' => trim($responsibilityEvidence),
                 'quantity' => $return->quantity, 'note' => trim($note),
                 'sent_at' => now(), 'created_at' => now(), 'updated_at' => now(),
             ]);
@@ -714,6 +763,15 @@ class FulfillmentWorkflow
             if (bccomp($newAmount, '0', 2) < 0) {
                 $this->fail('Giá trị trả hàng vượt giá trị đơn.');
             }
+            if (bccomp((string) $return->credit_amount, '0', 2) > 0) {
+                app(PaymentScheduleWorkflow::class)->adjustForReturn(
+                    (int) $returnId,
+                    (int) $debt->id,
+                    $accountantId,
+                    (string) $return->credit_amount,
+                    'Giảm nghĩa vụ theo phiếu trả hàng '.$return->code
+                );
+            }
             $previousOverpaid = bccomp((string) $debt->paid, (string) $debt->amount, 2) > 0
                 ? bcsub((string) $debt->paid, (string) $debt->amount, 2) : '0.00';
             $newOverpaid = bccomp((string) $debt->paid, $newAmount, 2) > 0
@@ -730,7 +788,8 @@ class FulfillmentWorkflow
                 ]);
             }
             DB::table('returns')->where('id', $returnId)->update([
-                'status' => 'completed', 'processed_by' => $accountantId, 'updated_at' => now(),
+                'status' => 'completed', 'processed_by' => $accountantId,
+                'completed_at' => now()->format('Y-m-d H:i:s.u'), 'updated_at' => now(),
             ]);
         });
     }

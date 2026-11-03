@@ -2,86 +2,98 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Backup\BackupRepository;
-use App\Services\Backup\BackupSchedule;
-use App\Services\Backup\BackupService;
-use App\Services\Backup\GoogleDriveBackupStore;
+use App\Services\BackupService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class BackupController extends Controller
 {
-    public function index(BackupService $service, BackupSchedule $schedule): View
+    public function index(BackupService $backups): View
     {
-        return view('staff.backups', ['status' => $service->status(), 'settings' => $schedule->settings()]);
+        return view('staff.backups', ['backups' => $backups->listing()]);
     }
 
-    public function create(Request $request, BackupService $service): RedirectResponse
+    public function store(BackupService $backups): RedirectResponse
     {
         try {
-            $service->request('manual', (int) $request->user()->getAuthIdentifier());
-
-            return back()->with('success', 'Đã tiếp nhận yêu cầu. Worker sẽ xử lý; chỉ hoàn tất sau khi kiểm tra bản Drive.');
-        } catch (\Throwable $exception) {
-            return back()->withErrors(['backup' => 'Chưa tạo được backup. Kiểm tra khóa, kết nối Google và queue; thông tin thiếu được hiển thị trên trang.']);
+            $id = $backups->exclusive(fn () => $backups->create());
+        } catch (Throwable $exception) {
+            return $this->error($exception);
         }
+
+        return to_route('management.backups.show', $id)->with('success', 'Đã tạo bản sao lưu. Bạn có thể tải tệp về máy.');
     }
 
-    public function retry(string $id, BackupService $service): RedirectResponse
+    public function upload(Request $request, BackupService $backups): RedirectResponse
     {
+        $request->validate(['backup' => ['required', 'file', 'extensions:cmcbackup', 'max:131072']]);
         try {
-            $service->retryUpload($id);
-
-            return back()->with('success', 'Đã xếp hàng tải lại cùng bản mã hóa, không chụp dữ liệu lại.');
-        } catch (\Throwable $exception) {
-            return back()->withErrors(['backup' => 'Chưa thử lại được. Bản sao lưu phải còn file local và không có tác vụ khác đang chạy.']);
+            $id = $backups->exclusive(fn () => $backups->import($request->file('backup')->getRealPath()));
+        } catch (Throwable $exception) {
+            return $this->error($exception);
         }
+
+        return to_route('management.backups.show', $id)->with('success', 'Đã kiểm tra và nhập bản sao lưu. Chưa thay đổi dữ liệu hiện tại.');
     }
 
-    public function settings(Request $request, BackupSchedule $schedule): RedirectResponse
+    public function show(string $id, BackupService $backups): View|RedirectResponse
     {
-        $values = $request->validate(['time' => ['required', 'date_format:H:i'], 'enabled' => ['sometimes', 'boolean']]);
         try {
-            $schedule->save($request->boolean('enabled'), $values['time']);
-
-            return back()->with('success', 'Đã lưu lịch sao lưu theo giờ Việt Nam.');
-        } catch (\RuntimeException $exception) {
-            return back()->withErrors(['backup' => $exception->getMessage()]);
+            $payload = $backups->inspect($backups->path($id));
+        } catch (Throwable $exception) {
+            return $this->error($exception);
         }
+
+        return view('staff.backup', [
+            'id' => $id, 'createdAt' => $payload['created_at'], 'reason' => $payload['reason'],
+            'tables' => array_map('count', $payload['tables']), 'files' => count($payload['files']),
+            'size' => filesize($backups->path($id)),
+        ]);
     }
 
-    public function download(string $id, BackupRepository $repository, GoogleDriveBackupStore $cloud): BinaryFileResponse|RedirectResponse
+    public function download(string $id, BackupService $backups): BinaryFileResponse
     {
-        try {
-            $run = $repository->find($id);
-        } catch (\Throwable $exception) {
-            abort(404);
-        }
-        abort_unless(in_array($run['state'], ['completed', 'local_verified', 'upload_failed'], true), 404);
-        $path = $repository->path($id).'/backup.cmcbackup';
-        $temporary = false;
-        try {
-            if (! is_file($path)) {
-                if (($run['cloud_pruned'] ?? false) || $run['state'] !== 'completed') {
-                    abort(404);
-                }
-                $path = $repository->path($id).'/download-'.bin2hex(random_bytes(6)).'.tmp';
-                $temporary = true;
-                $cloud->download($run, $path);
-            }
-            if (! hash_equals($run['sha256'], hash_file('sha256', $path))) {
-                throw new \RuntimeException('Hash không khớp.');
-            }
+        $path = $backups->path($id);
+        abort_unless(is_file($path), 404);
 
-            return response()->download($path, 'saigon-cmc-'.$id.'.cmcbackup', ['Content-Type' => 'application/octet-stream', 'Cache-Control' => 'private, no-store'])->deleteFileAfterSend($temporary);
-        } catch (\Throwable $exception) {
-            if ($temporary) {
-                @unlink($path);
-            }
+        return response()->download($path, 'cmc-'.$id.'.cmcbackup', [
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
 
-            return back()->withErrors(['backup' => 'Không tải được bản đã xác minh. Kiểm tra kết nối Drive hoặc tính toàn vẹn file.']);
+    public function restore(Request $request, string $id, BackupService $backups): RedirectResponse
+    {
+        $request->validate([
+            'password' => ['required', 'current_password'],
+            'confirmation' => ['required', 'in:KHOI PHUC'],
+        ], ['confirmation.in' => 'Nhập chính xác KHOI PHUC để xác nhận.']);
+        try {
+            $result = $backups->exclusive(fn () => $backups->restore($id));
+        } catch (Throwable $exception) {
+            return $this->error($exception);
         }
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return to_route('login')->with('success', 'Đã khôi phục dữ liệu. Bản dự phòng trước khôi phục: '.$result['safety_id'].'. Đăng nhập bằng tài khoản có trong bản sao lưu. Chỉ mục RAG đang được tạo lại.');
+    }
+
+    private function error(Throwable $exception): RedirectResponse
+    {
+        if (! $exception instanceof RuntimeException || $exception instanceof QueryException) {
+            report($exception);
+        }
+
+        return to_route('management.backups.index')->withErrors([
+            'backup' => $exception instanceof RuntimeException && ! $exception instanceof QueryException
+                ? $exception->getMessage() : 'Không hoàn tất được thao tác. Dữ liệu được giữ nguyên; hãy kiểm tra dung lượng và quyền ghi rồi thử lại.',
+        ]);
     }
 }

@@ -10,7 +10,7 @@
         "dompdf/dompdf": "^3.1",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
-        "mongodb/laravel-mongodb": "^5.11",
+        "mongodb/laravel-mongodb": "^5.0",
         "phpoffice/phpspreadsheet": "^5.10"
     },
     "require-dev": {
@@ -40,7 +40,7 @@
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
-            "@php artisan migrate --force",
+            "@php artisan cmms:mongo-install --no-interaction",
             "npm install --ignore-scripts",
             "npm run build"
         ],
@@ -64,8 +64,7 @@
         ],
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi",
-            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
+            "@php artisan cmms:mongo-install --no-interaction"
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"

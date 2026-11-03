@@ -3,17 +3,19 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\CommerceWorkflow;
 use Illuminate\Support\Facades\DB;
-use Tests\Concerns\ResetsMongoDatabase;
+use Tests\RefreshDocumentDatabase as RefreshDatabase;
 use Tests\TestCase;
 
 class ReportWorkflowTest extends TestCase
 {
-    use ResetsMongoDatabase;
+    use RefreshDatabase;
 
     public function test_sales_report_filters_orders_by_category_customer_and_reviewing_staff(): void
     {
         $manager = User::factory()->create(['role' => 'manager', 'status' => 'active']);
+        $reviewer = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $sales = User::factory()->create(['role' => 'sales', 'status' => 'active']);
         $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
         $otherCustomer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
@@ -38,8 +40,8 @@ class ReportWorkflowTest extends TestCase
         $this->assertCount(1, $snapshot['orders']);
         $this->assertSame('DH-R-0', $snapshot['orders'][0]['code']);
         $this->assertSame($category, json_decode($report->filters, true)['category_id']);
-        $this->actingAs($manager)->post('/staff/reports/'.$report->id.'/review', ['decision' => 'approved'])->assertRedirect();
-        $this->get('/staff/reports/'.$report->id.'/print')->assertOk()->assertSee('Biểu đồ Đơn hàng');
+        $this->actingAs($reviewer)->post('/staff/reports/'.$report->id.'/review', ['decision' => 'approved'])->assertRedirect();
+        $this->actingAs($reviewer)->get('/staff/reports/'.$report->id.'/print')->assertOk()->assertSee('Biểu đồ Đơn hàng');
     }
 
     public function test_inventory_report_filters_products_by_supplier_purchase_history(): void
@@ -99,6 +101,24 @@ class ReportWorkflowTest extends TestCase
         $pdf = $this->actingAs($accountant)->get('/staff/reports/'.$report->id.'/pdf')
             ->assertOk()->assertDownload($report->code.'.pdf');
         $this->assertStringStartsWith('%PDF', $pdf->streamedContent());
+    }
+
+    public function test_report_form_keeps_dates_and_filters_after_validation_failure(): void
+    {
+        $manager = User::factory()->create(['role' => 'manager', 'status' => 'active']);
+        $category = DB::table('categories')->insertGetId(['code' => 'CAT-KEEP', 'name' => 'Nhóm giữ lại']);
+
+        $this->actingAs($manager)->from('/staff/reports')->post('/staff/reports', [
+            'type' => 'inventory', 'period_preset' => 'custom',
+            'from_date' => '2026-01-05', 'to_date' => '2026-01-04',
+            'from_date_display' => '05/01/2026', 'to_date_display' => '04/01/2026',
+            'category_id' => $category,
+        ])->assertSessionHasErrors(['to_date'])->assertRedirect('/staff/reports');
+
+        $this->get('/staff/reports')->assertOk()
+            ->assertSee('value="inventory" selected', false)
+            ->assertSee('value="05/01/2026"', false)->assertSee('value="04/01/2026"', false)
+            ->assertSee('value="'.$category.'" selected', false);
     }
 
     public function test_past_reports_exclude_later_payments_and_stock_changes(): void
@@ -169,6 +189,42 @@ class ReportWorkflowTest extends TestCase
         ])->assertRedirect('/staff/reports');
         $finance = json_decode(DB::table('reports')->where('type', 'finance')->value('snapshot'), true);
         $this->assertSame([], $finance['debts']);
+    }
+
+    public function test_finance_snapshot_does_not_count_unconfirmed_pickup_order_as_receivable(): void
+    {
+        $accountant = User::factory()->create(['role' => 'accounting', 'status' => 'active']);
+        $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
+        $warehouse = DB::table('warehouses')->insertGetId(['code' => 'WH-PICKUP-RPT', 'name' => 'Kho nhận']);
+        $product = DB::table('products')->insertGetId([
+            'code' => 'PR-PICKUP-RPT', 'name' => 'Vật liệu pickup', 'unit' => 'bao', 'price' => 100,
+            'direct_purchase_allowed' => true,
+        ]);
+        DB::table('inventory')->insert(['warehouse_id' => $warehouse, 'product_id' => $product, 'quantity' => 2]);
+        $order = app(CommerceWorkflow::class)->placePickupOrder($customer->id, [$product => 1], $warehouse);
+
+        $asOf = now()->toDateString();
+        $this->actingAs($accountant)->post('/staff/reports', [
+            'type' => 'finance', 'from_date' => $asOf, 'to_date' => $asOf,
+        ])->assertRedirect('/staff/reports');
+        $finance = json_decode(DB::table('reports')->latest('id')->value('snapshot'), true);
+        $this->assertSame([], $finance['debts']);
+
+        $sales = User::factory()->create(['role' => 'sales', 'status' => 'active']);
+        $this->travel(2)->days();
+        app(CommerceWorkflow::class)->reviewOrder($order, $sales->id, true);
+        $this->actingAs($accountant)->post('/staff/reports', [
+            'type' => 'finance', 'from_date' => $asOf, 'to_date' => $asOf,
+        ])->assertRedirect('/staff/reports');
+        $finance = json_decode(DB::table('reports')->latest('id')->value('snapshot'), true);
+        $this->assertSame([], $finance['debts']);
+
+        $this->actingAs($accountant)->post('/staff/reports', [
+            'type' => 'finance', 'from_date' => $asOf, 'to_date' => now()->toDateString(),
+        ])->assertRedirect('/staff/reports');
+        $finance = json_decode(DB::table('reports')->latest('id')->value('snapshot'), true);
+        $this->assertCount(1, $finance['debts']);
+        $this->assertEquals(100, $finance['debts'][0]['amount']);
     }
 
     public function test_finance_report_caps_collected_amount_after_return_credit(): void

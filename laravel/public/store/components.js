@@ -173,8 +173,15 @@ document.querySelectorAll('[data-product-stepper]').forEach(stepper => {
     stepper.addEventListener('click', event => {
         const button = event.target.closest('[data-step]');
         if (!button || button.disabled) return;
-        if (button.dataset.step === 'up') input.stepUp();
-        else input.stepDown();
+        const direction = button.dataset.step === 'up' ? 1 : -1;
+        const amount = Number(input.dataset.stepAmount || input.step);
+        const precision = Math.max(0, (input.step.split('.')[1] || '').length);
+        const scale = 10 ** precision;
+        const min = Number(input.min || 0);
+        const max = Number(input.max || Number.MAX_SAFE_INTEGER);
+        const nextValue = Math.max(min, Math.min(max, Math.round((Number(input.value) + direction * amount) * scale) / scale));
+        input.value = String(nextValue);
+        input.dispatchEvent(new Event('input', {bubbles: true}));
         sync();
     });
     input.addEventListener('input', () => {
