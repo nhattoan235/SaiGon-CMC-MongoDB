@@ -1,3 +1,6 @@
+@extends('layouts.staff')
+@section('title', 'Đối chiếu công nợ khách hàng | Sài Gòn CMC')
+@section('content')
 <section class="mb-5">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
         <div><h1 class="h3">Đối chiếu công nợ khách hàng</h1><p class="text-secondary mb-0">Mỗi lần gửi là một snapshot có phiên bản riêng. Số dư được tính từ sổ công nợ và giao dịch đã ghi nhận.</p></div>
@@ -27,3 +30,4 @@
     </tbody></table></div>
     {{ $reconciliations->links() }}
 </section>
+@endsection

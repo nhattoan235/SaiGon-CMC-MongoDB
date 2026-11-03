@@ -1,3 +1,6 @@
+@extends('layouts.staff')
+@section('title', 'Chứng từ xác nhận công nợ nhà cung cấp | Sài Gòn CMC')
+@section('content')
 <section class="mb-5">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4"><div><h1 class="h3">Chứng từ xác nhận công nợ nhà cung cấp</h1><p class="text-secondary mb-0">Đây là xác nhận được kế toán ghi nhận từ chứng từ liên hệ với nhà cung cấp; nhà cung cấp không đăng nhập hệ thống.</p></div><a class="btn btn-outline-dark" href="{{ route('staff.section', 'finance') }}">Quay lại tài chính</a></div>
     @if(session('success'))<div class="alert alert-success" role="status">{{ session('success') }}</div>@endif
@@ -30,3 +33,4 @@
     </tbody></table></div>
     {{ $confirmations->links() }}
 </section>
+@endsection

@@ -1,3 +1,6 @@
+@extends('layouts.staff')
+@section('title', 'Chi tiết đối chiếu công nợ | Sài Gòn CMC')
+@section('content')
 <section class="mb-5">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
         <div><h1 class="h3">Đối chiếu {{ $reconciliation->customer_name }} · v{{ $reconciliation->version_number }}</h1><p class="text-secondary mb-0">Kỳ {{ $reconciliation->period_start }} – {{ $reconciliation->as_of_date }} · {{ \App\Support\UiFormat::status($reconciliation->status) }}</p></div>
@@ -33,3 +36,4 @@
         @if($reconciliation->status === 'resolved' && ! $reconciliation->customer_confirmed_at)<p class="alert alert-warning mt-3 mb-0">Kế toán đã ghi cách xử lý; khách hàng chưa thực hiện thao tác xác nhận.</p>@endif
     </section>
 </section>
+@endsection

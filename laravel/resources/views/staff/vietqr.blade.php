@@ -3,6 +3,21 @@
 @section('content')
 <div class="container-fluid container-wide pb-5">
     <div class="page-intro"><h1 class="page-title">Chuyển khoản VietQR</h1><p class="page-subtitle">Tạo QR để khách chuyển khoản. Chỉ xác nhận sau khi đối chiếu tiền đã vào tài khoản ngân hàng.</p></div>
+    @if($accounts->isNotEmpty())
+        <section class="mb-5">
+            <h2 class="h5">QR nhận tiền vào tài khoản</h2>
+            <p class="small muted">Khách tự nhập số tiền và nội dung. Để gắn QR với công nợ và đối soát trong hệ thống, tạo yêu cầu ở bên dưới.</p>
+            <div class="d-flex flex-wrap gap-3">
+                @foreach($accounts as $account)
+                    <article class="order-card">
+                        <h3 class="h6">{{ $account->bank_name }} · {{ $account->account_no }}</h3>
+                        <img src="{{ $account->qr_url }}" alt="Mã QR nhận tiền vào {{ $account->bank_name }}, tài khoản {{ $account->account_no }}" width="270" height="320" class="img-fluid" loading="lazy">
+                        <p class="small muted mb-0">{{ $account->account_name }}</p>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
     <section class="mb-5"><h2 class="h5">Tạo yêu cầu chuyển khoản</h2>
         @if($accounts->isEmpty())<p class="order-card">Chưa có tài khoản nhận tiền đang hoạt động. Quản trị viên cần cấu hình tài khoản VietQR.</p>
         @elseif($debts->isEmpty())<p class="order-card">Không có khoản phải thu đủ điều kiện.</p>

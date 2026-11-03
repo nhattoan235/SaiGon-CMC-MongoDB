@@ -14,9 +14,15 @@ class VietQrController extends Controller
     public function accounts(Request $request): View
     {
         abort_unless($request->user()->role === 'admin', 403);
+        $accounts = DB::table('bank_accounts')->orderByDesc('id')->get();
+        foreach ($accounts as $account) {
+            if ($account->active) {
+                $account->qr_url = $this->bankAccountQrUrl($account);
+            }
+        }
 
         return view('staff.vietqr-accounts', [
-            'accounts' => DB::table('bank_accounts')->orderByDesc('id')->get(),
+            'accounts' => $accounts,
             'events' => DB::table('bank_account_events')->join('users', 'users.id', '=', 'bank_account_events.actor_id')
                 ->select('bank_account_events.*', 'users.name as actor_name')->orderByDesc('bank_account_events.id')->limit(20)->get(),
         ]);
@@ -52,6 +58,10 @@ class VietQrController extends Controller
     public function staffIndex(Request $request): View
     {
         abort_unless($request->user()->role === 'accounting', 403);
+        $accounts = DB::table('bank_accounts')->where('active', true)->orderByDesc('id')->get();
+        foreach ($accounts as $account) {
+            $account->qr_url = $this->bankAccountQrUrl($account);
+        }
         $debts = DB::table('debts')->leftJoin('orders', 'orders.id', '=', 'debts.order_id')
             ->leftJoin('contracts', 'contracts.id', '=', 'orders.contract_id')
             ->where('debts.direction', 'receivable')->where('debts.status', 'open')
@@ -67,7 +77,7 @@ class VietQrController extends Controller
             ->orderByDesc('vietqr_requests.id')->limit(100)->get();
 
         return view('staff.vietqr', [
-            'accounts' => DB::table('bank_accounts')->where('active', true)->orderByDesc('id')->get(),
+            'accounts' => $accounts,
             'debts' => $debts, 'requests' => $requests,
         ]);
     }
@@ -101,11 +111,26 @@ class VietQrController extends Controller
             if (preg_match('/^[A-Z0-9 ]{5,50}$/', $accountName)) {
                 $params['accountName'] = $accountName;
             }
-            $transfer->qr_url = 'https://img.vietqr.io/image/'.$transfer->bank_bin.'-'.$transfer->account_no.'-compact2.svg?'
-                .http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+            $transfer->qr_url = $this->vietQrImageUrl($transfer->bank_bin, $transfer->account_no, $params);
         }
 
         return view('store.transfers', compact('requests'));
+    }
+
+    private function bankAccountQrUrl(object $account): string
+    {
+        $accountName = Str::upper(Str::ascii($account->account_name));
+        $params = preg_match('/^[A-Z0-9 ]{5,50}$/', $accountName) ? ['accountName' => $accountName] : [];
+
+        return $this->vietQrImageUrl($account->bank_bin, $account->account_no, $params);
+    }
+
+    /** @param array<string, int|string> $params */
+    private function vietQrImageUrl(string $bankBin, string $accountNo, array $params): string
+    {
+        $query = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+
+        return 'https://img.vietqr.io/image/'.$bankBin.'-'.$accountNo.'-compact2.svg'.($query === '' ? '' : '?'.$query);
     }
 
     public function claim(Request $request, VietQrWorkflow $workflow, int $id): RedirectResponse
