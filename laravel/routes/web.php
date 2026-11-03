@@ -50,7 +50,6 @@ Route::middleware(['auth', 'permission:customer.portal'])->group(function () {
     Route::post('/my/contracts/{id}/respond', [StoreController::class, 'respondToContract'])->name('my.contracts.respond');
     Route::get('/my/orders', [StoreController::class, 'myOrders'])->name('my.orders');
     Route::get('/my/transfers', [VietQrController::class, 'customerIndex'])->name('my.transfers.index');
-    Route::post('/my/transfers/{id}/claim', [VietQrController::class, 'claim'])->name('my.transfers.claim');
     Route::post('/my/orders/{id}/cancel', [StoreController::class, 'cancelPickupOrder'])->name('my.orders.cancel');
     Route::put('/my/orders/{id}', [StoreController::class, 'updatePickupOrder'])->name('my.orders.update');
     Route::get('/my/invoices/{id}', [StoreController::class, 'showInvoice'])->name('my.invoices.show');
@@ -100,11 +99,6 @@ Route::middleware(['auth', 'permission:payments.record'])->prefix('staff')->name
 });
 Route::middleware(['auth', 'permission:vietqr.create'])->prefix('staff')->name('staff.')->group(function () {
     Route::get('/vietqr', [VietQrController::class, 'staffIndex'])->name('vietqr.index');
-    Route::post('/vietqr', [VietQrController::class, 'create'])->name('vietqr.create');
-});
-Route::middleware(['auth', 'permission:vietqr.confirm'])->prefix('staff')->name('staff.')->group(function () {
-    Route::post('/vietqr/{id}/confirm', [VietQrController::class, 'confirm'])->name('vietqr.confirm');
-    Route::post('/vietqr/{id}/cancel', [VietQrController::class, 'cancel'])->name('vietqr.cancel');
 });
 Route::middleware(['auth', 'permission:bank_accounts.manage'])->prefix('management')->name('management.')->group(function () {
     Route::get('/bank-accounts', [VietQrController::class, 'accounts'])->name('bank-accounts.index');

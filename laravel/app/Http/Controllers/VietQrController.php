@@ -58,63 +58,25 @@ class VietQrController extends Controller
     public function staffIndex(Request $request): View
     {
         abort_unless($request->user()->role === 'accounting', 403);
-        $accounts = DB::table('bank_accounts')->where('active', true)->orderByDesc('id')->get();
-        foreach ($accounts as $account) {
-            $account->qr_url = $this->bankAccountQrUrl($account);
-        }
-        $debts = DB::table('debts')->leftJoin('orders', 'orders.id', '=', 'debts.order_id')
-            ->leftJoin('contracts', 'contracts.id', '=', 'orders.contract_id')
-            ->where('debts.direction', 'receivable')->where('debts.status', 'open')
-            ->where(fn ($query) => $query->whereNull('orders.id')->orWhere(function ($orderQuery) {
-                $orderQuery->whereNotIn('orders.status', ['awaiting_confirmation', 'awaiting_contract', 'rejected', 'cancelled'])
-                    ->where(fn ($contractQuery) => $contractQuery->where('orders.requires_contract', false)
-                        ->orWhere('contracts.status', 'signed'));
-            }))->select('debts.*', 'orders.code as order_code')->orderByDesc('debts.id')->limit(100)->get()
-            ->filter(fn ($debt) => bccomp((string) $debt->paid, (string) $debt->amount, 2) < 0);
-        $requests = DB::table('vietqr_requests')->join('debts', 'debts.id', '=', 'vietqr_requests.debt_id')
-            ->join('users', 'users.id', '=', 'vietqr_requests.customer_id')
-            ->select('vietqr_requests.*', 'debts.code as debt_code', 'users.name as customer_name')
-            ->orderByDesc('vietqr_requests.id')->limit(100)->get();
 
-        return view('staff.vietqr', [
-            'accounts' => $accounts,
-            'debts' => $debts, 'requests' => $requests,
-        ]);
-    }
-
-    public function create(Request $request, VietQrWorkflow $workflow): RedirectResponse
-    {
-        abort_unless($request->user()->role === 'accounting', 403);
-        $data = $request->validate([
-            'debt_id' => ['required', 'integer', 'exists:debts,id'],
-            'bank_account_id' => ['required', 'integer', 'exists:bank_accounts,id'],
-            'amount' => ['required', 'regex:/^[1-9]\d{0,12}$/'],
-        ]);
-        $workflow->createRequest((int) $data['debt_id'], (int) $data['bank_account_id'], $data['amount'], $request->user()->id);
-
-        return back()->with('success', 'Đã tạo yêu cầu VietQR. Chưa ghi nhận tiền vào công nợ.');
+        return view('staff.vietqr', ['accounts' => $this->activeAccounts()]);
     }
 
     public function customerIndex(Request $request): View
     {
         abort_unless($request->user()->role === 'customer', 403);
-        $requests = DB::table('vietqr_requests')->join('debts', 'debts.id', '=', 'vietqr_requests.debt_id')
-            ->where('vietqr_requests.customer_id', $request->user()->id)
-            ->select('vietqr_requests.*', 'debts.code as debt_code')
-            ->orderByDesc('vietqr_requests.id')->get();
-        foreach ($requests as $transfer) {
-            $params = [
-                'amount' => (int) $transfer->amount,
-                'addInfo' => $transfer->transfer_content,
-            ];
-            $accountName = Str::upper(Str::ascii($transfer->account_name));
-            if (preg_match('/^[A-Z0-9 ]{5,50}$/', $accountName)) {
-                $params['accountName'] = $accountName;
-            }
-            $transfer->qr_url = $this->vietQrImageUrl($transfer->bank_bin, $transfer->account_no, $params);
+
+        return view('store.transfers', ['accounts' => $this->activeAccounts()]);
+    }
+
+    private function activeAccounts()
+    {
+        $accounts = DB::table('bank_accounts')->where('active', true)->orderByDesc('id')->get();
+        foreach ($accounts as $account) {
+            $account->qr_url = $this->bankAccountQrUrl($account);
         }
 
-        return view('store.transfers', compact('requests'));
+        return $accounts;
     }
 
     private function bankAccountQrUrl(object $account): string
@@ -133,30 +95,4 @@ class VietQrController extends Controller
         return 'https://img.vietqr.io/image/'.$bankBin.'-'.$accountNo.'-compact2.svg'.($query === '' ? '' : '?'.$query);
     }
 
-    public function claim(Request $request, VietQrWorkflow $workflow, int $id): RedirectResponse
-    {
-        abort_unless($request->user()->role === 'customer', 403);
-        $data = $request->validate(['reference' => ['nullable', 'string', 'max:100']]);
-        $workflow->markTransferred($id, $request->user()->id, $data['reference'] ?? null);
-
-        return back()->with('success', 'Đã báo chuyển khoản. Kế toán sẽ đối chiếu tiền thực nhận.');
-    }
-
-    public function confirm(Request $request, VietQrWorkflow $workflow, int $id): RedirectResponse
-    {
-        abort_unless($request->user()->role === 'accounting', 403);
-        $data = $request->validate(['bank_reference' => ['required', 'string', 'max:100']]);
-        $workflow->confirm($id, $request->user()->id, trim($data['bank_reference']));
-
-        return back()->with('success', 'Đã xác nhận tiền vào tài khoản và cập nhật công nợ.');
-    }
-
-    public function cancel(Request $request, VietQrWorkflow $workflow, int $id): RedirectResponse
-    {
-        abort_unless($request->user()->role === 'accounting', 403);
-        $data = $request->validate(['reason' => ['required', 'string', 'max:500']]);
-        $workflow->cancel($id, $data['reason']);
-
-        return back()->with('success', 'Đã hủy yêu cầu VietQR; công nợ không thay đổi.');
-    }
 }

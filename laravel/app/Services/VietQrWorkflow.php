@@ -14,9 +14,6 @@ class VietQrWorkflow
             if ($id && ! $before) {
                 $this->fail('Tài khoản ngân hàng không tồn tại.');
             }
-            if ($id && DB::table('vietqr_requests')->where('bank_account_id', $id)->whereIn('status', ['pending', 'claimed'])->exists()) {
-                $this->fail('Tài khoản còn yêu cầu chuyển khoản đang chờ. Hãy xử lý yêu cầu trước khi sửa hoặc ngừng sử dụng.');
-            }
             $values = [
                 'bank_bin' => $data['bank_bin'], 'bank_name' => $data['bank_name'],
                 'account_no' => $data['account_no'], 'account_name' => $data['account_name'],
