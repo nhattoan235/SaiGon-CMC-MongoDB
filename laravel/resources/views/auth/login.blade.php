@@ -13,7 +13,7 @@
             @if($errors->any())<div class="auth-error" role="alert">{{ $errors->first() }}</div>@endif
             <form method="post" action="{{ route('login.submit') }}">
                 @csrf
-                <div class="auth-field"><label for="login">Email hoặc tên đăng nhập</label><input id="login" name="login" type="text" value="{{ old('login') }}" placeholder="ban@example.com" required autocomplete="username" aria-describedby="loginHelp" @if($errors->has('login')) aria-invalid="true" @endif><small id="loginHelp">Khách hàng mới dùng email; tài khoản cũ có thể dùng số điện thoại. Nhân viên dùng tên đăng nhập được cấp.</small></div>
+                <div class="auth-field"><label for="login">Email hoặc tên đăng nhập</label><input id="login" name="login" type="text" value="{{ old('login') }}" placeholder="ban@example.com" required autocomplete="username" aria-describedby="loginHelp" @if($errors->has('login')) aria-invalid="true" @endif><small id="loginHelp">Khách hàng đăng nhập bằng email hoặc tên đăng nhập; tài khoản cũ có thể dùng số điện thoại. Nhân viên dùng tên đăng nhập được cấp.</small></div>
                 <div class="auth-field"><div class="auth-password-row"><label for="password">Mật khẩu</label><a href="{{ route('password.request') }}">Quên mật khẩu?</a></div><input id="password" type="password" name="password" placeholder="Nhập mật khẩu" required autocomplete="current-password"></div>
                 <label class="auth-remember"><input type="checkbox" name="remember" value="1"> Ghi nhớ đăng nhập</label>
                 <button class="btn-editorial dark auth-submit" type="submit">Đăng nhập</button>

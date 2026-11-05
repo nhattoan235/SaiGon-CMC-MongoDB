@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\VietQrImageGenerator;
 use App\Services\VietQrWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use Throwable;
 
 class VietQrController extends Controller
 {
@@ -49,9 +51,11 @@ class VietQrController extends Controller
         ]);
     }
 
-    public function staffIndex(Request $request): View
+    public function staffIndex(Request $request, VietQrImageGenerator $imageGenerator): View
     {
         abort_unless($request->user()->role === 'accounting', 403);
+        $activeDebtIds = DB::table('vietqr_requests')->whereIn('status', ['pending', 'claimed'])
+            ->pluck('debt_id')->map(fn ($id) => (string) $id)->all();
         $debts = DB::table('debts')->leftJoin('orders', 'orders.id', '=', 'debts.order_id')
             ->leftJoin('contracts', 'contracts.id', '=', 'orders.contract_id')
             ->where('debts.direction', 'receivable')->where('debts.status', 'open')
@@ -60,11 +64,13 @@ class VietQrController extends Controller
                     ->where(fn ($contractQuery) => $contractQuery->where('orders.requires_contract', false)
                         ->orWhere('contracts.status', 'signed'));
             }))->select('debts.*', 'orders.code as order_code')->orderByDesc('debts.id')->limit(100)->get()
-            ->filter(fn ($debt) => bccomp((string) $debt->paid, (string) $debt->amount, 2) < 0);
+            ->filter(fn ($debt) => bccomp((string) $debt->paid, (string) $debt->amount, 2) < 0
+                && ! in_array((string) $debt->id, $activeDebtIds, true));
         $requests = DB::table('vietqr_requests')->join('debts', 'debts.id', '=', 'vietqr_requests.debt_id')
             ->join('users', 'users.id', '=', 'vietqr_requests.customer_id')
             ->select('vietqr_requests.*', 'debts.code as debt_code', 'users.name as customer_name')
             ->orderByDesc('vietqr_requests.id')->limit(100)->get();
+        $this->attachQrImages($requests, $imageGenerator);
 
         return view('staff.vietqr', [
             'accounts' => DB::table('bank_accounts')->where('active', true)->orderByDesc('id')->get(),
@@ -85,27 +91,40 @@ class VietQrController extends Controller
         return back()->with('success', 'Đã tạo yêu cầu VietQR. Chưa ghi nhận tiền vào công nợ.');
     }
 
-    public function customerIndex(Request $request): View
+    public function customerIndex(Request $request, VietQrImageGenerator $imageGenerator): View
     {
         abort_unless($request->user()->role === 'customer', 403);
         $requests = DB::table('vietqr_requests')->join('debts', 'debts.id', '=', 'vietqr_requests.debt_id')
             ->where('vietqr_requests.customer_id', $request->user()->id)
             ->select('vietqr_requests.*', 'debts.code as debt_code')
             ->orderByDesc('vietqr_requests.id')->get();
-        foreach ($requests as $transfer) {
-            $params = [
-                'amount' => (int) $transfer->amount,
-                'addInfo' => $transfer->transfer_content,
-            ];
-            $accountName = Str::upper(Str::ascii($transfer->account_name));
-            if (preg_match('/^[A-Z0-9 ]{5,50}$/', $accountName)) {
-                $params['accountName'] = $accountName;
-            }
-            $transfer->qr_url = 'https://img.vietqr.io/image/'.$transfer->bank_bin.'-'.$transfer->account_no.'-compact2.svg?'
-                .http_build_query($params, '', '&', PHP_QUERY_RFC3986);
-        }
+        $this->attachQrImages($requests, $imageGenerator);
 
         return view('store.transfers', compact('requests'));
+    }
+
+    private function attachQrImages(iterable $requests, VietQrImageGenerator $imageGenerator): void
+    {
+        foreach ($requests as $transfer) {
+            if (! in_array($transfer->status, ['pending', 'claimed'], true)) {
+                continue;
+            }
+
+            try {
+                $transfer->qr_data_uri = $imageGenerator->generate(
+                    (string) $transfer->bank_bin,
+                    (string) $transfer->account_no,
+                    (string) (int) $transfer->amount,
+                    (string) $transfer->transfer_content,
+                );
+            } catch (Throwable $exception) {
+                Log::warning('Unable to generate a VietQR image for a transfer request.', [
+                    'request_id' => $transfer->id,
+                    'exception' => $exception::class,
+                ]);
+                $transfer->qr_data_uri = null;
+            }
+        }
     }
 
     public function claim(Request $request, VietQrWorkflow $workflow, int $id): RedirectResponse

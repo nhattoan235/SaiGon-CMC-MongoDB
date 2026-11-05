@@ -49,11 +49,20 @@ class VietQrWorkflowTest extends TestCase
         $this->assertDatabaseCount('payments', 0);
         $this->assertSame('0.00', (string) DB::table('debts')->find($debtId)->paid);
 
+        $this->actingAs($accountant)->get(route('staff.vietqr.index'))
+            ->assertOk()
+            ->assertSee('Mã VietQR '.$transfer->code)
+            ->assertSee('data:image/svg+xml;base64,', false)
+            ->assertDontSee('option value="'.$debtId.'" data-remaining=', false);
+
         $this->actingAs($admin)->get(route('my.transfers.index'))->assertForbidden();
         $this->actingAs($other)->get(route('my.transfers.index'))->assertDontSee($transfer->code);
         $this->actingAs($other)->post(route('my.transfers.claim', $transfer->id))->assertNotFound();
         $this->actingAs($customer)->get(route('my.transfers.index'))
-            ->assertOk()->assertSee($transfer->transfer_content)->assertSee('img.vietqr.io');
+            ->assertOk()
+            ->assertSee($transfer->transfer_content)
+            ->assertSee('data:image/svg+xml;base64,')
+            ->assertDontSee('img.vietqr.io');
         $this->actingAs($customer)->post(route('my.transfers.claim', $transfer->id), ['reference' => 'KH-001'])->assertRedirect();
         $this->assertDatabaseCount('payments', 0);
         $this->assertDatabaseHas('vietqr_requests', ['id' => $transfer->id, 'status' => 'claimed']);

@@ -15,6 +15,11 @@
                 @csrf
                 <div class="auth-field"><label for="name">Họ và tên</label><input id="name" name="name" value="{{ old('name') }}" placeholder="Tên người liên hệ" required autocomplete="name"></div>
                 <div class="auth-field">
+                    <label for="username">Tên đăng nhập</label>
+                    <input id="username" name="username" value="{{ old('username') }}" placeholder="Ví dụ: nhattoan" maxlength="40" autocomplete="username" aria-describedby="usernameHelp" @if($errors->has('username')) aria-invalid="true" @endif>
+                    <small id="usernameHelp">Không bắt buộc. Nếu bỏ trống, email sẽ được dùng làm tên đăng nhập. Có thể dùng chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch nối.</small>
+                </div>
+                <div class="auth-field">
                     <label for="email">Email đăng nhập</label>
                     <div class="auth-otp-row">
                         <input id="email" name="email" type="email" value="{{ old('email') }}" placeholder="ban@example.com" autocomplete="email" aria-describedby="emailHelp emailFeedback" @if($errors->has('email')) aria-invalid="true" @endif required>

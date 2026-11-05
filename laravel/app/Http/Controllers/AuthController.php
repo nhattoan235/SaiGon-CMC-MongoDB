@@ -127,10 +127,15 @@ class AuthController extends Controller
 
     public function register(Request $request): RedirectResponse
     {
-        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
+        $username = trim((string) $request->input('username'));
+        $request->merge([
+            'email' => Str::lower(trim((string) $request->input('email'))),
+            'username' => $username === '' ? null : Str::lower($username),
+        ]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'email' => ['required', 'email', 'max:254', 'unique:users,email', 'unique:users,username'],
+            'username' => ['nullable', 'string', 'min:3', 'max:40', 'regex:/^(?=.*[a-z])[a-z0-9._-]+$/', 'unique:users,username'],
             'otp' => ['required', 'digits:6'],
             'address' => ['required', 'string', 'max:1000'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
@@ -138,6 +143,10 @@ class AuthController extends Controller
             'name.required' => 'Vui lòng nhập họ và tên.',
             'email.required' => 'Vui lòng nhập email đăng nhập.',
             'email.unique' => 'Email này đã có tài khoản. Vui lòng đăng nhập hoặc dùng email khác.',
+            'username.min' => 'Tên đăng nhập cần ít nhất 3 ký tự.',
+            'username.max' => 'Tên đăng nhập không được vượt quá 40 ký tự.',
+            'username.regex' => 'Tên đăng nhập chỉ gồm chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch nối.',
+            'username.unique' => 'Tên đăng nhập này đã được sử dụng.',
             'otp.required' => 'Mã OTP không hợp lệ. Vui lòng nhập mã đã nhận.',
             'otp.digits' => 'Mã OTP không hợp lệ. Vui lòng nhập đủ 6 chữ số.',
             'address.required' => 'Vui lòng nhập địa chỉ.',
@@ -164,7 +173,7 @@ class AuthController extends Controller
             $user = User::create([
                 'name' => $data['name'], 'email' => $data['email'],
                 'address' => $data['address'],
-                'username' => $data['email'], 'role' => 'customer', 'status' => 'active',
+                'username' => $data['username'] ?: $data['email'], 'role' => 'customer', 'status' => 'active',
                 'password' => $data['password'],
             ]);
             $user->forceFill(['email_verified_at' => now()])->save();
@@ -231,6 +240,6 @@ class AuthController extends Controller
             $login = str_starts_with($login, '84') ? '0'.substr($login, 2) : $login;
         }
 
-        return str_contains($login, '@') ? Str::lower($login) : $login;
+        return Str::lower($login);
     }
 }

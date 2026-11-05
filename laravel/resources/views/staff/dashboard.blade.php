@@ -97,16 +97,16 @@
         <button class="btn btn-outline-dark">Lọc công nợ</button>
         @if(request()->hasAny(['direction','status']))<a class="btn btn-link" href="{{ route('staff.section','finance') }}">Xóa bộ lọc</a>@endif
       </form>
-      <div class="table-responsive"><table class="table"><thead><tr><th>Mã</th><th>Đơn / Hợp đồng</th><th>Khách hàng / Nhà cung cấp</th><th>Loại</th><th>Giá trị</th><th>Đã trả</th><th>Còn lại</th><th>Ghi nhận thanh toán</th></tr></thead><tbody>
+      <div class="table-responsive"><table class="table finance-ledger-table"><thead><tr><th>Mã</th><th>Đơn / Hợp đồng</th><th>Khách hàng / Nhà cung cấp</th><th>Loại</th><th>Giá trị</th><th>Đã trả</th><th>Còn lại</th><th>Ghi nhận thanh toán</th></tr></thead><tbody>
       @foreach($debts as $debt)
         <tr>
-          <td>{{ $debt->code }}</td><td>{{ $debt->order_code ?? '—' }} @if($debt->contract_code)· {{ $debt->contract_code }}@endif</td>
-          <td>{{ $debt->direction === 'payable' ? ($debt->supplier_name ?? 'Nhà cung cấp chưa rõ') : ($debt->customer_name ?? 'Khách hàng chưa rõ') }}</td>
-          <td>{{ $debt->direction==='payable' ? 'Phải trả' : ((in_array($debt->order_status, ['awaiting_confirmation', 'awaiting_contract', 'rejected', 'cancelled'], true) || ($debt->requires_contract && $debt->contract_status !== 'signed')) ? 'Dự kiến / chưa phát sinh' : 'Phải thu') }}</td>
-          <td>{{ number_format($debt->amount,0,',','.') }} ₫</td><td>{{ number_format($debt->paid,0,',','.') }} ₫</td><td>{{ number_format(max(0,$debt->amount-$debt->paid),0,',','.') }} ₫</td>
-          <td>
+          <td data-label="Mã">{{ $debt->code }}</td><td data-label="Đơn / Hợp đồng">{{ $debt->order_code ?? '—' }} @if($debt->contract_code)· {{ $debt->contract_code }}@endif</td>
+          <td data-label="Khách hàng / Nhà cung cấp">{{ $debt->direction === 'payable' ? ($debt->supplier_name ?? 'Nhà cung cấp chưa rõ') : ($debt->customer_name ?? 'Khách hàng chưa rõ') }}</td>
+          <td data-label="Loại">{{ $debt->direction==='payable' ? 'Phải trả' : ((in_array($debt->order_status, ['awaiting_confirmation', 'awaiting_contract', 'rejected', 'cancelled'], true) || ($debt->requires_contract && $debt->contract_status !== 'signed')) ? 'Dự kiến / chưa phát sinh' : 'Phải thu') }}</td>
+          <td data-label="Giá trị">{{ number_format($debt->amount,0,',','.') }} ₫</td><td data-label="Đã trả">{{ number_format($debt->paid,0,',','.') }} ₫</td><td data-label="Còn lại">{{ number_format(max(0,$debt->amount-$debt->paid),0,',','.') }} ₫</td>
+          <td data-label="Ghi nhận thanh toán">
             @if($debt->paid<$debt->amount && auth()->user()->hasPermission('payments.record') && !in_array($debt->order_status, ['awaiting_confirmation', 'awaiting_contract', 'rejected', 'cancelled'], true) && (!$debt->requires_contract || $debt->contract_status === 'signed'))
-              <form class="d-flex gap-1 flex-wrap" method="post" action="{{ route('staff.payments.record',$debt->id) }}">@csrf
+              <form class="d-flex gap-1 flex-wrap finance-payment-form" method="post" action="{{ route('staff.payments.record',$debt->id) }}">@csrf
                 <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                 <input class="form-control form-control-sm" style="width:105px" type="number" name="amount" min="0.01" step="0.01" placeholder="Số tiền" required data-payment-amount>
                 <select class="form-select form-select-sm" style="width:130px" name="method"><option value="cash">Tiền mặt</option>@if($debt->direction === 'payable')<option value="bank_transfer">Chuyển khoản</option>@endif</select>
