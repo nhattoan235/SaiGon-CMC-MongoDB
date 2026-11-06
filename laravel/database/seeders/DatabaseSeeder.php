@@ -70,5 +70,9 @@ class DatabaseSeeder extends Seeder
         }
         $this->call(EstimateNormVersionSeeder::class);
         DB::table('warehouses')->insertOrIgnore(['code' => 'KHO-CHINH', 'name' => 'Kho chính Sài Gòn CMC', 'active' => true, 'updated_at' => now(), 'created_at' => now()]);
+
+        if (app()->environment('demo')) {
+            $this->call(DemoSeeder::class);
+        }
     }
 }

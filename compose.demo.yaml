@@ -1,0 +1,109 @@
+services:
+  mongo:
+    image: mongo:8.0
+    command: ["mongod", "--replSet", "cmc-rs", "--bind_ip_all"]
+    volumes:
+      - cmc_demo_mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ping:1}).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [demo]
+
+  mongo-init:
+    image: mongo:8.0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: ["mongosh", "--host", "mongo:27017", "--quiet", "--eval"]
+    command:
+      - "try { rs.status(); } catch (e) { if (e.code === 94) { rs.initiate({_id:'cmc-rs',members:[{_id:0,host:'mongo:27017'}]}); } else { throw e; } }"
+    networks: [demo]
+
+  app-mongodb: &app-runtime
+    build:
+      context: .
+      dockerfile: Dockerfile.mongodb
+    working_dir: /app/laravel
+    volumes:
+      - .:/app
+    environment: &app-environment
+      APP_ENV: demo
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:${CMC_DEMO_PORT:-8000}
+      DB_CONNECTION: mongodb
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=cmc-rs
+      MONGODB_DATABASE: cmms_demo
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      MAIL_MAILER: log
+      OLLAMA_URL: http://ollama:11434
+      RAG_EMBEDDING_MODEL: bge-m3
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: cmc_knowledge
+    ports:
+      - "127.0.0.1:${CMC_DEMO_PORT:-8000}:8000"
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    command: php artisan serve --host=0.0.0.0 --port=8000 --no-reload
+    networks: [demo]
+
+  queue-worker:
+    <<: *app-runtime
+    ports: []
+    command: php artisan queue:work database --queue=default --sleep=3 --tries=1 --timeout=60
+    restart: unless-stopped
+
+  rag-worker:
+    <<: *app-runtime
+    ports: []
+    command: php artisan queue:work rag --queue=rag --sleep=3 --tries=1 --timeout=1800
+    restart: unless-stopped
+
+  scheduler:
+    <<: *app-runtime
+    ports: []
+    command: php artisan schedule:work
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - cmc_demo_ollama:/root/.ollama
+    restart: unless-stopped
+    networks: [demo]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - cmc_demo_qdrant:/qdrant/storage
+    restart: unless-stopped
+    networks: [demo]
+
+  assets:
+    image: node:22-alpine
+    working_dir: /app/laravel
+    volumes:
+      - .:/app
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["npm ci && npm run build"]
+    profiles: [tools]
+
+  qdrant-wait:
+    image: node:22-alpine
+    entrypoint: ["node", "-e"]
+    command:
+      - "const http=require('node:http'); let attempts=0; const poll=()=>{const req=http.get('http://qdrant:6333/readyz',res=>{res.resume(); if(res.statusCode===200) process.exit(0); if(++attempts<60) setTimeout(poll,1000); else process.exit(1);}); req.on('error',()=>{if(++attempts<60) setTimeout(poll,1000); else process.exit(1);});}; poll();"
+    networks: [demo]
+    profiles: [tools]
+
+volumes:
+  cmc_demo_mongo:
+  cmc_demo_ollama:
+  cmc_demo_qdrant:
+
+networks:
+  demo: {}

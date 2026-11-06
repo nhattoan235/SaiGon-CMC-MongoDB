@@ -14,6 +14,8 @@
 
 ## Chạy ứng dụng Laravel
 
+Muốn mở bản demo nhanh trên Windows, xem [DEMO-GUIDE.md](DEMO-GUIDE.md) và bấm đúp `Start-Demo.bat`. Bản demo có database, tài khoản theo vai trò, tồn kho mẫu và RAG tách riêng; không cần đưa database hoặc khóa API lên Git.
+
 Cần Docker Desktop đang chạy. Từ thư mục gốc repo, khi cài mới:
 
 ```powershell
@@ -34,7 +36,7 @@ docker compose -p cmc-mongodb -f compose.mongodb.yaml exec app-mongodb php artis
 
 Mở [http://localhost:8000](http://localhost:8000). Lệnh tạo quản trị viên hỏi mật khẩu tương tác. Điền `GROQ_API_KEY` trong `.env` nếu dùng trợ lý AI. Không đưa `.env` lên Git. MongoDB chạy replica set để hỗ trợ transaction; cổng database không được công khai ra máy chủ.
 
-Xem [hướng dẫn Laravel chi tiết](laravel/README.md) và [hồ sơ chuyển đổi](.acceptance-docs/mongodb-migration-status.md). Seeder không tạo sẵn tài khoản hay tồn kho đầu kỳ.
+Xem [hướng dẫn Laravel chi tiết](laravel/README.md), [hướng dẫn bản demo](DEMO-GUIDE.md) và [hồ sơ chuyển đổi](.acceptance-docs/mongodb-migration-status.md). Chế độ demo tạo tài khoản vai trò và tồn kho mẫu bằng Seeder; chế độ chạy cục bộ thông thường không tự tạo tài khoản quản trị.
 
 ## Cấu trúc repo
 

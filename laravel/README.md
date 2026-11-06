@@ -12,19 +12,9 @@ docker compose -p cmc-mongodb -f compose.mongodb.yaml up -d app-mongodb queue-wo
 
 Mở http://localhost:8000. Lệnh `cmms:create-admin` hỏi mật khẩu tương tác; không có tài khoản quản trị mặc định. Giữ nguyên APP_KEY khi dùng dữ liệu đã chuyển hoặc khôi phục bản sao lưu. Nếu chưa có Groq key, trợ lý tra cứu sản phẩm trong danh mục nội bộ; khi có key, trợ lý dùng Groq và bộ kiến thức tư vấn khách hàng.
 
-## Tài khoản kiểm thử trên cơ sở dữ liệu hiện tại
+## Tài khoản demo
 
-| Vai trò | Tên đăng nhập |
-| --- | --- |
-| Khách hàng | `qa_customer` |
-| Kinh doanh | `qa_sales` |
-| Kho | `qa_warehouse` |
-| Kế toán | `qa_accounting` |
-| Giao nhận | `qa_delivery` |
-| Quản lý | `qa_manager` |
-| Quản trị viên | `qa_admin` |
-
-Các tên tài khoản trên là dữ liệu tham khảo của database kiểm thử cũ; `db:seed` không tự tạo lại chúng. Sau chuyển đổi, ứng dụng giữ tài khoản thực sự có trong snapshot MySQL. Tài khoản QA phục vụ nghiệm thu 7 vai trò được tạo trong database riêng, không thêm vào dữ liệu vận hành.
+Trên máy trình diễn Windows, dùng [hướng dẫn chạy demo](../DEMO-GUIDE.md). Lệnh khởi chạy tạo tài khoản demo cho cả 7 vai trò và tồn kho minh họa khi khởi tạo database riêng. Chúng được tạo bởi Seeder có trong Git; không phụ thuộc vào database QA hoặc dữ liệu database của máy phát triển.
 
 ## Quy trình hiện có
 
